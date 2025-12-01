@@ -26,6 +26,7 @@ type Item = {
 
 export default function AddSalePage() {
   // Header & customer
+  const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerCompany, setCustomerCompany] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
@@ -135,6 +136,7 @@ useEffect(() => {
 }, [customerName, customers]);
 
 const handleSelectCustomer = (c: any) => {
+  setCustomerId(c.id); // ⭐ REQUIRED
   setCustomerName(c.name);
   setCustomerCompany(c.company || "");
   setCustomerAddress(c.address || "");
@@ -172,67 +174,8 @@ const handleSelectCustomer = (c: any) => {
     setItems((p) => p.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setMessage("You must be logged in.");
-        setLoading(false);
-        return;
-      }
-
-      // Ensure at least one valid item
-      const validItems = items.filter((it) => it.description.trim() || it.amount > 0);
-      if (validItems.length === 0) {
-        setMessage("Add at least one item.");
-        setLoading(false);
-        return;
-      }
-
-      // Build sale object
-      const saleObj: any = {
-        customerName,
-        customerCompany,
-        customerAddress,
-        customerPhone,
-        customerChNo,
-        billNumber,
-        date,
-        poNumber,
-        terms,
-        items: validItems,
-        subtotal: Number(subtotal),
-        total: Number(subtotal), // Option A: total == subtotal
-        userId: user.uid,
-        paidAmount: 0,
-        createdAt: serverTimestamp(),
-      };
-
-      // Save new customer if not already saved
-        const exists = customers.find((c) => c.name === customerName);
-
-        if (!exists) {
-          await addDoc(collection(db, "customers"), {
-            name: customerName,
-            company: customerCompany,
-            address: customerAddress,
-            phone: customerPhone,
-            chNo: customerChNo,
-            userId: auth.currentUser?.uid,
-            createdAt: serverTimestamp(),
-          });
-        }
-
-
-      const docRef = await addDoc(collection(db, "sales"), saleObj);
-      // ⭐ REDIRECT to invoice page
-      router.push(`/sales/${docRef.id}`);
-
-      const handleSubmit = async (e: any) => {
+// ------------------ REPLACE handleSubmit WITH THIS ------------------
+const handleSubmit = async (e: any) => {
   e.preventDefault();
   setLoading(true);
   setMessage("");
@@ -245,6 +188,7 @@ const handleSelectCustomer = (c: any) => {
       return;
     }
 
+    // Validate items
     const validItems = items.filter((it) => it.description.trim() || it.amount > 0);
     if (validItems.length === 0) {
       setMessage("Add at least one item.");
@@ -252,8 +196,46 @@ const handleSelectCustomer = (c: any) => {
       return;
     }
 
+    const typedName = (customerName || "").trim();
+    if (!typedName) {
+      setMessage("Please provide a customer name.");
+      setLoading(false);
+      return;
+    }
+
+    // Try to find existing customer (case-insensitive)
+    const exists = customers.find(
+      (c) => (c.name || "").toString().trim().toLowerCase() === typedName.toLowerCase()
+    );
+
+    // finalCustomerId will be used in sale object
+    let finalCustomerId = customerId || (exists ? exists.id : "");
+
+    // If no customerId and not found, create new customer BEFORE saving sale
+    if (!finalCustomerId) {
+      const newCustObj = {
+        name: typedName,
+        company: customerCompany || "",
+        address: customerAddress || "",
+        phone: customerPhone || "",
+        chNo: customerChNo || "",
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+      };
+
+      const newCustRef = await addDoc(collection(db, "customers"), newCustObj);
+      finalCustomerId = newCustRef.id;
+
+      // update UI state so subsequent actions know this customer
+      setCustomerId(finalCustomerId);
+      // add to local customers list (so dropdown updates)
+      setCustomers((prev) => [{ id: finalCustomerId, ...newCustObj }, ...prev]);
+    }
+
+    // Build sale object using finalCustomerId (guaranteed)
     const saleObj: any = {
-      customerName,
+      customerId: finalCustomerId,     // <- important
+      customerName: typedName,
       customerCompany,
       customerAddress,
       customerPhone,
@@ -270,36 +252,35 @@ const handleSelectCustomer = (c: any) => {
       createdAt: serverTimestamp(),
     };
 
+    // Save sale
     const docRef = await addDoc(collection(db, "sales"), saleObj);
 
-    // ⭐ redirect to invoice page
+    // Redirect to invoice page
     router.push(`/sales/${docRef.id}`);
 
+    setMessage("Sale entry added successfully!");
+
+    // reset form (optional keep autoBill)
+    setCustomerId("");
+    setCustomerName("");
+    setCustomerCompany("");
+    setCustomerAddress("");
+    setCustomerPhone("");
+    setCustomerChNo("");
+    setBillNumber(autoBill);
+    setDate(new Date().toISOString().slice(0, 10));
+    setPoNumber("");
+    setTerms("CASH");
+    setItems([{ description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+    setSubtotal(0);
   } catch (error: any) {
     setMessage("Error saving entry: " + (error?.message || error));
+  } finally {
     setLoading(false);
   }
 };
+// ------------------ end replacement ------------------
 
-      setMessage("Sale entry added successfully!");
-      // reset form (keep auto bill increment work optional)
-      setCustomerName("");
-      setCustomerCompany("");
-      setCustomerAddress("");
-      setCustomerPhone("");
-      setCustomerChNo("");
-      setBillNumber(autoBill);
-      setDate(new Date().toISOString().slice(0, 10));
-      setPoNumber("");
-      setTerms("CASH");
-      setItems([{ description: "", qty: 1, unitPrice: 0, amount: 0 }]);
-      setSubtotal(0);
-    } catch (error: any) {
-      setMessage("Error saving entry: " + (error?.message || error));
-    } finally {
-      setLoading(false);
-    }
-  };
 
  return (
   <div className="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200">

@@ -4,67 +4,61 @@ import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   collection,
-  addDoc,
   getDocs,
   query,
   where,
   serverTimestamp,
   doc,
-  runTransaction,
+  setDoc,
 } from "firebase/firestore";
 
 export default function IncomePage() {
-  const [salesList, setSalesList] = useState<any[]>([]);
-  const [selectedSale, setSelectedSale] = useState("");
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Load Sales and Income Data
+  /* ---------------------------------------------
+      LOAD CUSTOMERS ONLY
+  ----------------------------------------------*/
   useEffect(() => {
-    const fetchSales = async () => {
+    const fetchCustomers = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Load sales
-      const q1 = query(collection(db, "sales"), where("userId", "==", user.uid));
-      const salesSnap = await getDocs(q1);
-      const sales = salesSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const q = query(
+        collection(db, "customers"),
+        where("userId", "==", user.uid)
+      );
+      const snap = await getDocs(q);
+
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       }));
 
-      // Load income
-      const q2 = query(collection(db, "income"), where("userId", "==", user.uid));
-      const incomeSnap = await getDocs(q2);
-      const incomeList = incomeSnap.docs.map((d) => d.data());
+      // Sort alphabetically for easy selection
+      list.sort((a: any, b: any) =>
+        (a.name || "").localeCompare(b.name || "")
+      );
 
-      // Summarize paid amounts
-      const paidMap: Record<string, number> = {};
-      incomeList.forEach((i: any) => {
-        if (!i.saleId) return;
-        paidMap[i.saleId] = (paidMap[i.saleId] || 0) + Number(i.amount || 0);
-      });
-
-      // Merge into sales
-      const finalSales = sales.map((s: any) => ({
-        ...s,
-        paidAmount: paidMap[s.id] || 0,
-      }));
-
-      setSalesList(finalSales);
+      setCustomerList(list);
     };
 
-    fetchSales();
+    fetchCustomers();
   }, []);
 
+  /* ---------------------------------------------
+      ADD PAYMENT (INCOME)
+  ----------------------------------------------*/
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage("");
     setError("");
+    setMessage("");
+    setLoading(true);
 
     try {
       const user = auth.currentUser;
@@ -73,47 +67,43 @@ export default function IncomePage() {
         return;
       }
 
-      const saleItem = salesList.find((s) => s.id === selectedSale);
-      if (!saleItem) {
-        setError("Invalid sale selection.");
+      const customer = customerList.find((c) => c.id === selectedCustomer);
+      if (!customer) {
+        setError("Invalid customer selection.");
         return;
       }
 
-      // Firestore Transaction
-      const saleRef = doc(db, "sales", selectedSale);
-      await runTransaction(db, async (tx) => {
-        const saleSnap = await tx.get(saleRef);
-        if (!saleSnap.exists()) throw new Error("Sale not found");
+      const payAmount = Number(amount);
+      if (payAmount <= 0) {
+        setError("Amount must be greater than 0.");
+        return;
+      }
 
-        const oldPaid = Number(saleSnap.data().paidAmount || 0);
-        const newPaid = oldPaid + Number(amount);
+      // Normalize date
+      const finalDate = date
+        ? new Date(date).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
 
-        // Add income record
-        const incomeRef = doc(collection(db, "income"));
-        tx.set(incomeRef, {
-          saleId: selectedSale,   // ⭐ IMPORTANT ⭐
-          customerName: saleItem.customerName,
-          billNumber: saleItem.billNumber,
-          amount: Number(amount),
-          date,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        });
-
-        // Update sale document
-        tx.update(saleRef, {
-          paidAmount: newPaid,
-        });
+      // Create income record
+      const incomeRef = doc(collection(db, "income"));
+      await setDoc(incomeRef, {
+        saleId: "", // no sale binding now
+        customerId: customer.id,
+        customerName: customer.name,
+        billNumber: "",
+        amount: payAmount,
+        date: finalDate,
+        userId: user.uid,
+        createdAt: serverTimestamp(),
       });
 
-      setMessage("Income added successfully!");
+      setMessage("Payment added successfully!");
+      setSelectedCustomer("");
       setAmount("");
       setDate("");
-      setSelectedSale("");
-
     } catch (err: any) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || "Something went wrong.");
     }
 
     setLoading(false);
@@ -121,33 +111,29 @@ export default function IncomePage() {
 
   return (
     <div className="max-w-xl mx-auto bg-white p-6 rounded-xl shadow">
-      <h1 className="text-2xl font-bold mb-4">Add Income</h1>
+      <h1 className="text-2xl font-bold mb-4">Add Income (Payment)</h1>
 
       {message && <p className="text-green-600">{message}</p>}
       {error && <p className="text-red-600">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
-        {/* Dropdown */}
+        {/* Customer Dropdown */}
         <select
           className="w-full border p-2 rounded"
-          value={selectedSale}
-          onChange={(e) => setSelectedSale(e.target.value)}
+          value={selectedCustomer}
+          onChange={(e) => setSelectedCustomer(e.target.value)}
           required
         >
-          <option value="">Select Sale Bill</option>
-          {salesList.map((s) => {
-            const paid = Number(s.paidAmount || 0);
-            const remaining = s.amount - paid;
+          <option value="">Select Customer</option>
 
-            return (
-              <option key={s.id} value={s.id}>
-                {s.customerName} — {s.billNumber} | Bill: {s.amount} | Paid: {paid} | Remaining: {remaining}
-              </option>
-            );
-          })}
+          {customerList.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} — {c.company || ""}
+            </option>
+          ))}
         </select>
 
+        {/* Date */}
         <input
           type="date"
           className="w-full border p-2 rounded"
@@ -156,6 +142,7 @@ export default function IncomePage() {
           required
         />
 
+        {/* Amount */}
         <input
           type="number"
           placeholder="Amount Received"
@@ -170,7 +157,7 @@ export default function IncomePage() {
           disabled={loading}
           className="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700"
         >
-          {loading ? "Saving..." : "Add Income"}
+          {loading ? "Saving..." : "Add Payment"}
         </button>
       </form>
     </div>
