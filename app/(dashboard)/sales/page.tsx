@@ -187,7 +187,7 @@ export default function SalesListPage() {
                     <td className="p-3">
                       <div className="flex gap-2">
                         <Link
-                          href={`/customer/${s.customerId}`}
+                          href={`/customers/${s.customerId}`}
                           className="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
                         >
                           Ledger
