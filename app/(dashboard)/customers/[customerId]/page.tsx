@@ -1,5 +1,8 @@
 "use client";
 
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
