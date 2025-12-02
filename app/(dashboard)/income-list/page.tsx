@@ -8,14 +8,14 @@ import {
   getDocs,
   query,
   where,
+  doc,
+  runTransaction,
 } from "firebase/firestore";
-import { doc, runTransaction } from "firebase/firestore";
 
 type IncomeItem = {
   id: string;
-  saleId: string;
+  customerId: string;
   customerName: string;
-  billNumber: string;
   amount: number;
   date: string;
 };
@@ -29,7 +29,7 @@ export default function IncomeListPage() {
   const [error, setError] = useState("");
 
   /* ---------------------------------------------
-     Load All Income Records
+     Load Income Records
   ----------------------------------------------*/
   useEffect(() => {
     const loadIncome = async () => {
@@ -47,10 +47,11 @@ export default function IncomeListPage() {
         );
 
         const snap = await getDocs(q);
+
         const list: IncomeItem[] = snap.docs.map((d) => {
           const dd: any = d.data();
 
-          // Normalize date (handles empty and timestamp)
+          // Normalize date
           let finalDate = "";
           if (typeof dd.date === "string") finalDate = dd.date;
           else if (dd.date?.toDate)
@@ -60,15 +61,14 @@ export default function IncomeListPage() {
 
           return {
             id: d.id,
-            saleId: dd.saleId || "",
+            customerId: dd.customerId || "",
             customerName: dd.customerName || "",
-            billNumber: dd.billNumber || "",
             amount: Number(dd.amount || 0),
             date: finalDate,
           };
         });
 
-        // Sort: latest at top
+        // Latest first
         list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         setIncomeList(list);
@@ -84,29 +84,19 @@ export default function IncomeListPage() {
   }, []);
 
   /* ---------------------------------------------
-     Delete Income & Reverse Sale Paid Amount
+     Delete Income (no sale linking now)
   ----------------------------------------------*/
   const handleDelete = async (income: IncomeItem) => {
     if (!confirm("Are you sure you want to delete this payment?")) return;
 
     try {
       const incomeRef = doc(db, "income", income.id);
-      const saleRef = doc(db, "sales", income.saleId);
 
       await runTransaction(db, async (tx) => {
-        const saleSnap = await tx.get(saleRef);
-        if (!saleSnap.exists()) return;
-
-        const sale = saleSnap.data();
-        const oldPaid = Number(sale.paidAmount || 0);
-        const newPaid = Math.max(0, oldPaid - Number(income.amount));
-
-        tx.update(saleRef, { paidAmount: newPaid });
         tx.delete(incomeRef);
       });
 
       setIncomeList((prev) => prev.filter((x) => x.id !== income.id));
-
       alert("Payment deleted successfully.");
     } catch (err) {
       console.error(err);
@@ -125,6 +115,7 @@ export default function IncomeListPage() {
 
       {/* Filters */}
       <div className="flex justify-between items-center mb-4">
+        {/* Date Filters */}
         <div className="flex gap-2">
           <input
             type="date"
@@ -132,7 +123,6 @@ export default function IncomeListPage() {
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
           />
-
           <input
             type="date"
             className="p-2 border rounded"
@@ -141,9 +131,10 @@ export default function IncomeListPage() {
           />
         </div>
 
+        {/* Search */}
         <input
           type="text"
-          placeholder="Search customer, bill, amount..."
+          placeholder="Search customer, amount, date..."
           className="w-64 p-2 border rounded"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -173,7 +164,6 @@ export default function IncomeListPage() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-3 text-left">Customer</th>
-                <th className="p-3 text-left">Bill No</th>
                 <th className="p-3 text-right">Amount</th>
                 <th className="p-3 text-left">Date</th>
                 <th className="p-3 text-left">Actions</th>
@@ -185,37 +175,36 @@ export default function IncomeListPage() {
                 .filter((i) => {
                   const q = search.toLowerCase();
 
-                  // Search safety
+                  // Search
                   const matchesSearch =
                     i.customerName.toLowerCase().includes(q) ||
-                    i.billNumber.toLowerCase().includes(q) ||
                     String(i.amount).includes(q) ||
                     (i.date || "").toLowerCase().includes(q);
 
-                  // Date range
+                  // Date Filtering
                   const d = new Date(i.date);
                   const from = fromDate ? new Date(fromDate) : null;
                   const to = toDate ? new Date(toDate) : null;
 
                   const matchesDate =
-                    (!from || d >= from) &&
-                    (!to || d <= to);
+                    (!from || d >= from) && (!to || d <= to);
 
                   return matchesSearch && matchesDate;
                 })
                 .map((i) => (
                   <tr key={i.id} className="border-t">
                     <td className="p-3">{i.customerName}</td>
-                    <td className="p-3">{i.billNumber}</td>
+
                     <td className="p-3 text-right">
                       {i.amount.toLocaleString()}
                     </td>
-                    <td className="p-3">{i.date}</td>
-                    <td className="p-3 flex gap-2">
 
-                      {/* Ledger Link */}
+                    <td className="p-3">{i.date}</td>
+
+                    <td className="p-3 flex gap-2">
+                      {/* Ledger Button */}
                       <Link
-                        href={`/customers/${i.saleId}`}
+                        href={`/customers/${i.customerId}`}
                         className="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
                       >
                         Ledger
