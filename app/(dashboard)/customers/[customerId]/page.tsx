@@ -117,11 +117,16 @@ export default function CustomerLedgerPage(): JSX.Element {
         const allSales: DocumentData[] = [];
         sSnap.forEach((d) => allSales.push({ id: d.id, ...d.data() }));
 
-        const customerSales = allSales.filter(
-          (s) =>
-            s.customerId === customerId ||
-            normalize(s.customerName) === custName
+       const customerSales = allSales.filter((s) => {
+        const saleName = normalize(s.customerName);
+        const customerNameNormalized = normalize(foundCustomer.name);
+
+        return (
+          s.customerId === customerId ||
+          saleName === customerNameNormalized
         );
+      });
+
 
         if (mounted) setSales(customerSales);
 
@@ -138,9 +143,13 @@ export default function CustomerLedgerPage(): JSX.Element {
         const allPayments: DocumentData[] = [];
         incSnap.forEach((d) => allPayments.push({ id: d.id, ...d.data() }));
 
-        const customerPayments = allPayments.filter(
-          (p) => normalize(p.customerName) === custName
-        );
+        const paymentsCustomerName = normalize(foundCustomer.name);
+
+          const customerPayments = allPayments.filter((p) => {
+            const pName = normalize(p.customerName);
+            return pName === paymentsCustomerName;
+          });
+
 
         if (mounted) setPayments(customerPayments);
       } catch (error) {

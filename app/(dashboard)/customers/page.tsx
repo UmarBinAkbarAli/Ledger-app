@@ -1,5 +1,16 @@
 "use client";
 
+interface CustomerType {
+  id: string;
+  name?: string;
+  company?: string;
+  phone?: string;
+  address?: string;
+  previousBalance?: number;
+  userId?: string;
+  createdAt?: any;
+}
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
@@ -23,9 +34,9 @@ export default function CustomersPage() {
 
         const snap = await getDocs(q);
 
-        const list = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
+        const list: CustomerType[] = snap.docs.map((d) => ({
+        ...(d.data() as CustomerType),
+        id: d.id,
         }));
 
         // Sort alphabetically for clean UI
