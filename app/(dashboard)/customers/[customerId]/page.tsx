@@ -1,8 +1,5 @@
 "use client";
 
-export const revalidate = 0;
-export const dynamic = "force-dynamic";
-
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
@@ -338,19 +335,38 @@ export default function CustomerLedgerPage(): JSX.Element {
         </div>
 
         <div className="flex gap-2">
-          <button
-            onClick={handlePrint}
-            className="px-3 py-1 bg-green-600 text-white rounded"
-          >
-            Print Ledger
-          </button>
-          <button
-            onClick={handlePDF}
-            className="px-3 py-1 bg-blue-600 text-white rounded"
-          >
-            Download PDF
-          </button>
-        </div>
+            {/* Add Sale */}
+            <button
+              onClick={() => router.push(`/sales/new?saleCustomerId=${customerId}`)}
+              className="px-3 py-1 bg-blue-700 text-white rounded hover:bg-blue-800"
+            >
+              Add Sale
+            </button>
+
+            {/* Add Payment */}
+            <button
+              onClick={() => router.push(`/income?customerId=${customerId}`)}
+              className="px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-700"
+            >
+              Add Payment
+            </button>
+
+            {/* Print Ledger */}
+            <button
+              onClick={handlePrint}
+              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Print Ledger
+            </button>
+
+            {/* Download PDF */}
+            <button
+              onClick={handlePDF}
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Download PDF
+            </button>
+          </div>
       </div>
 
       {/* FILTERS */}

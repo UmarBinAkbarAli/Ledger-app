@@ -1,5 +1,7 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
@@ -36,6 +38,10 @@ export default function AddSalePage() {
 const [customers, setCustomers] = useState<any[]>([]);
 const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
 const [showDropdown, setShowDropdown] = useState(false);
+
+// If coming from customer ledger, read saleCustomerId
+const searchParams = useSearchParams();
+const saleCustomerId = searchParams.get("saleCustomerId");
 
   const router = useRouter();
 
@@ -119,6 +125,23 @@ useEffect(() => {
 
   loadCustomers();
 }, []);
+
+// Auto-select customer when coming from ledger
+useEffect(() => {
+  if (!saleCustomerId) return;        // no param → do nothing
+  if (customers.length === 0) return; // wait for customers to load
+
+  const found = customers.find((c) => c.id === saleCustomerId);
+  if (found) {
+    setCustomerId(found.id);
+    setCustomerName(found.name);
+    setCustomerCompany(found.company || "");
+    setCustomerAddress(found.address || "");
+    setCustomerPhone(found.phone || "");
+    setCustomerChNo(found.chNo || "");
+    setShowDropdown(false);
+  }
+}, [saleCustomerId, customers]);
 
 // Filter customers real-time
 useEffect(() => {

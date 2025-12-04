@@ -1,5 +1,7 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
@@ -15,11 +17,15 @@ import {
 export default function IncomePage() {
   const [customerList, setCustomerList] = useState<any[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState("");
+  // Get customerId from URL if coming from Ledger
+  const searchParams = useSearchParams();
+  const preSelectedCustomerId = searchParams.get("customerId");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  
 
   /* ---------------------------------------------
       LOAD CUSTOMERS ONLY
@@ -50,6 +56,13 @@ export default function IncomePage() {
 
     fetchCustomers();
   }, []);
+
+      // Auto-select customer ONLY if coming from Ledger page
+    useEffect(() => {
+      if (preSelectedCustomerId && customerList.length > 0) {
+        setSelectedCustomer(preSelectedCustomerId);
+      }
+    }, [preSelectedCustomerId, customerList]);
 
   /* ---------------------------------------------
       ADD PAYMENT (INCOME)
