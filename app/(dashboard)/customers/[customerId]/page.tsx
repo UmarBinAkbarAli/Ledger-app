@@ -37,7 +37,6 @@ type LedgerRow = {
   particular: string;
   folio: string;
   qty: number | "";
-  tCtn: number | "";
   rate: number | "";
   price: number;
   receive: number;
@@ -186,7 +185,6 @@ export default function CustomerLedgerPage(): JSX.Element {
         particular: "Previous Balance",
         folio: "-",
         qty: "",
-        tCtn: "",
         rate: "",
         price: 0,
         receive: 0,
@@ -198,11 +196,6 @@ export default function CustomerLedgerPage(): JSX.Element {
     ------------------------------*/
     for (const s of sales) {
       const items = Array.isArray(s.items) ? s.items : [];
-
-      const totalQty = items.reduce(
-        (acc: number, it: any) => acc + Number(it?.qty ?? 0),
-        0
-      );
 
       const rawDate = s.date ?? s.createdAt ?? "";
       const saleDate =
@@ -224,7 +217,6 @@ export default function CustomerLedgerPage(): JSX.Element {
           particular: it.description ?? "Item",
           folio: s.billNumber ?? s.id,
           qty,
-          tCtn: totalQty,
           rate,
           price,
           receive: 0,
@@ -251,7 +243,6 @@ export default function CustomerLedgerPage(): JSX.Element {
         particular: p.details ?? "Payment Received",
         folio: p.billNumber ?? "-",
         qty: "",
-        tCtn: "",
         rate: "",
         price: 0,
         receive: Number(p.amount ?? 0),
@@ -418,7 +409,6 @@ export default function CustomerLedgerPage(): JSX.Element {
                   <th className="p-2 text-left">PARTICULAR</th>
                   <th className="p-2 text-left">FOLO</th>
                   <th className="p-2 text-right">QTY</th>
-                  <th className="p-2 text-right">T CTN</th>
                   <th className="p-2 text-right">RATE</th>
                   <th className="p-2 text-right">PRICE</th>
                   <th className="p-2 text-right">RECEIVE PAYMENT</th>
@@ -426,49 +416,86 @@ export default function CustomerLedgerPage(): JSX.Element {
                 </tr>
               </thead>
 
-              <tbody>
-                {rowsWithBalance.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="p-4 text-center text-gray-500"
-                    >
-                      No transactions
-                    </td>
-                  </tr>
-                ) : (
-                  rowsWithBalance.map((r) => (
-                    <tr
-                      key={r.id}
-                      className={`border-t ${
-                        r.type === "payment" ? "bg-yellow-100" : ""
-                      }`}
-                    >
-                      <td className="p-2">{r.date || "-"}</td>
-                      <td className="p-2">{r.particular}</td>
-                      <td className="p-2">{r.folio}</td>
-                      <td className="p-2 text-right">
-                        {r.qty === "" ? "" : r.qty}
-                      </td>
-                      <td className="p-2 text-right">
-                        {r.tCtn === "" ? "" : r.tCtn}
-                      </td>
-                      <td className="p-2 text-right">
-                        {r.rate === "" ? "" : r.rate}
-                      </td>
-                      <td className="p-2 text-right">
-                        {r.price ? r.price.toLocaleString() : ""}
-                      </td>
-                      <td className="p-2 text-right">
-                        {r.receive ? r.receive.toLocaleString() : ""}
-                      </td>
-                      <td className="p-2 text-right font-semibold">
-                        {r.running.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
+            <tbody>
+              {rowsWithBalance.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-4 text-center text-gray-500">
+                    No transactions
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {(() => {
+                    const grouped: Record<string, LedgerRow[]> = {};
+
+                    rowsWithBalance.forEach((r: any) => {
+                      if (r.type === "sale") {
+                        if (!grouped[r.folio]) grouped[r.folio] = [];
+                        grouped[r.folio].push(r);
+                      }
+                    });
+
+                    return rowsWithBalance.map((r: any) => {
+                      const isLastSaleRow =
+                        r.type === "sale" &&
+                        grouped[r.folio] &&
+                        grouped[r.folio][grouped[r.folio].length - 1].id === r.id;
+
+                      const saleTotal =
+                        isLastSaleRow
+                          ? grouped[r.folio].reduce(
+                              (sum: number, x: any) => sum + Number(x.price || 0),
+                              0
+                            )
+                          : 0;
+
+                      return (
+                        <>
+                          {/* NORMAL ROW */}
+                          <tr
+                            key={r.id}
+                            className={`border-t ${
+                              r.type === "payment" ? "bg-yellow-100" : ""
+                            }`}
+                          >
+                            <td className="p-2">{r.date || "-"}</td>
+                            <td className="p-2">{r.particular}</td>
+                            <td className="p-2">{r.folio}</td>
+                            <td className="p-2 text-right">
+                              {r.qty === "" ? "" : r.qty}
+                            </td>
+                            <td className="p-2 text-right">
+                              {r.rate === "" ? "" : r.rate}
+                            </td>
+                            <td className="p-2 text-right">
+                              {r.price ? r.price.toLocaleString() : ""}
+                            </td>
+                            <td className="p-2 text-right">
+                              {r.receive ? r.receive.toLocaleString() : ""}
+                            </td>
+                            <td className="p-2 text-right font-semibold">
+                              {r.running.toLocaleString()}
+                            </td>
+                          </tr>
+
+                          {/* INVOICE TOTAL ROW */}
+                          {isLastSaleRow && (
+                            <tr className="bg-gray-200 font-semibold border-b">
+                              <td colSpan={4}></td>
+                              <td className="p-2 text-right">Invoice Total:</td>
+                              <td className="p-2 text-right">
+                                {saleTotal.toLocaleString()}
+                              </td>
+                              <td colSpan={2}></td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    });
+                  })()}
+                </>
+              )}
+            </tbody>
             </table>
           </div>
 
