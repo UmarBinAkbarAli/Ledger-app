@@ -12,6 +12,7 @@ import {
 import { doc, runTransaction } from "firebase/firestore";
 type ExpenseItem = {
   id: string;
+  supplierId: string;
   supplierName: string;
   billNumber: string;
   amount: number;
@@ -47,6 +48,7 @@ export default function ExpenseListPage() {
           const dd: any = d.data();
           return {
             id: d.id,
+            supplierId: dd.supplierId || "",  // ⭐ REQUIRED ⭐
             purchaseId: dd.purchaseId || "",  // ⭐ REQUIRED ⭐
             supplierName: dd.supplierName || "",
             billNumber: dd.billNumber || "",
@@ -199,9 +201,7 @@ export default function ExpenseListPage() {
 
                   <td className="p-3 flex gap-2">
                     <Link
-                      href={`/supplier/${encodeURIComponent(
-                        e.supplierName
-                      )}?name=${encodeURIComponent(e.supplierName)}`}
+                      href={`/supplier/${e.supplierId}`}
                       className="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300"
                     >
                       Ledger

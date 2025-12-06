@@ -47,12 +47,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <nav className="flex flex-col space-y-2">
           <Link className="hover:text-blue-600" href="/dashboard">Dashboard</Link>
           <Link className="hover:text-blue-600" href="/sales">Sales</Link>
+           <Link className="hover:text-blue-600" href="/income-list">Income</Link>
           <Link className="hover:text-blue-600" href="/purchase">Purchase</Link>
-          <Link className="hover:text-blue-600" href="/income">Add Income</Link>
-          <Link className="hover:text-blue-600" href="/income-list">Income List</Link>
-          <Link className="hover:text-blue-600" href="/expenses">Expenses</Link>
-          <Link className="hover:text-blue-600" href="/expense-list">Expense List</Link>
+          <Link className="hover:text-blue-600" href="/expense-list">Expense</Link>
           <Link className="hover:text-blue-600" href="/customers">Customers</Link>
+          <Link className="hover:text-blue-600" href="/supplier">Suppliers</Link>
         </nav>
 
         <div className="pt-10">

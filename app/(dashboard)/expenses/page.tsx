@@ -3,204 +3,164 @@
 import { useEffect, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
+  addDoc,
   collection,
   getDocs,
   query,
   where,
   serverTimestamp,
-  doc,
-  runTransaction,
 } from "firebase/firestore";
 
-type PurchaseItem = {
-  id: string;
-  supplierName: string;
-  billNumber: string;
-  amount: number;
-  paidAmount?: number;
-  date?: string;
-};
-
-export default function ExpensePage() {
-  const [purchaseList, setPurchaseList] = useState<PurchaseItem[]>([]);
-  const [selectedPurchase, setSelectedPurchase] = useState("");
+export default function AddSupplierPayment() {
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([]);
+  const [supplierId, setSupplierId] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
-  // Load all purchases + compute paid amounts from expenses
+  /* Load suppliers list */
   useEffect(() => {
-    const fetchPurchaseData = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        // 1) Fetch purchases
-        const q1 = query(
-          collection(db, "purchase"),
-          where("userId", "==", user.uid)
-        );
-        const purchaseSnap = await getDocs(q1);
-        const purchases = purchaseSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as PurchaseItem[];
-
-        // 2) Fetch expenses (payments TO suppliers)
-        const q2 = query(
-          collection(db, "expenses"),
-          where("userId", "==", user.uid)
-        );
-        const expenseSnap = await getDocs(q2);
-
-        const expenses: any[] = expenseSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-
-        // 3) Calculate paidAmount for each purchase
-        const paidMap: Record<string, number> = {};
-
-        expenses.forEach((exp: any) => {
-          if (!exp.purchaseId) return;
-          paidMap[exp.purchaseId] =
-            (paidMap[exp.purchaseId] || 0) + Number(exp.amount || 0);
-        });
-
-        // 4) Attach paid amounts
-        const finalList = purchases.map((p) => {
-          const paid = paidMap[p.id] || 0;
-          return { ...p, paidAmount: paid };
-        });
-
-        // sort alphabetically or by date
-        finalList.sort((a, b) =>
-          a.supplierName.localeCompare(b.supplierName)
-        );
-
-        setPurchaseList(finalList);
-      } catch (err) {
-        console.error("Error loading purchases", err);
-        setError("Failed to load purchase data.");
-      }
-    };
-
-    fetchPurchaseData();
-  }, []);
-
-  const submitExpense = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setMessage("");
-
-    try {
+    const loadSuppliers = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      if (!selectedPurchase) {
-        setError("Please select a purchase bill.");
-        setLoading(false);
-        return;
-      }
-
-      const amt = Number(amount);
-      if (!amt || amt <= 0) {
-        setError("Enter a valid amount.");
-        setLoading(false);
-        return;
-      }
-
-      const purchaseRef = doc(db, "purchase", selectedPurchase);
-
-      // TRANSACTION: write expense + update purchase.paidAmount
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(purchaseRef);
-        if (!snap.exists()) throw new Error("Purchase not found.");
-
-        const purchase = snap.data();
-        const currentPaid = Number(purchase.paidAmount || 0);
-        const newPaid = currentPaid + amt;
-
-        // create expense doc in expenses collection
-        const expRef = doc(collection(db, "expenses"));
-        tx.set(expRef, {
-          purchaseId: selectedPurchase,
-          supplierName: purchase.supplierName,
-          billNumber: purchase.billNumber,
-          amount: amt,
-          date: date || new Date().toISOString().slice(0, 10),
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        });
-
-        // update purchase doc paidAmount
-        tx.update(purchaseRef, {
-          paidAmount: newPaid,
-        });
-      });
-
-      // update UI state
-      setPurchaseList((prev) =>
-        prev.map((p) =>
-          p.id === selectedPurchase
-            ? { ...p, paidAmount: (p.paidAmount || 0) + Number(amount) }
-            : p
-        )
+      const q1 = query(
+        collection(db, "suppliers"),
+        where("userId", "==", user.uid)
       );
+      const snap = await getDocs(q1);
 
-      setMessage("Expense recorded and purchase updated successfully.");
-      setAmount("");
-      setDate("");
-      setSelectedPurchase("");
+      const list: any[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
 
-    } catch (err: any) {
-      console.error("Expense error:", err);
-      setError(err.message || "Failed to save expense.");
+      setSuppliers(list);
+    };
+
+    loadSuppliers();
+  }, []);
+
+  /* Filter supplier dropdown */
+  useEffect(() => {
+    if (!supplierName.trim()) {
+      setFilteredSuppliers([]);
+      return;
     }
 
-    setLoading(false);
+    const q = supplierName.toLowerCase();
+    const f = suppliers.filter((s) =>
+      (s.name || "").toLowerCase().includes(q)
+    );
+    setFilteredSuppliers(f);
+  }, [supplierName, suppliers]);
+
+  /* Select supplier */
+  const handleSelectSupplier = (s: any) => {
+    setSupplierId(s.id);
+    setSupplierName(s.name || "");
+    setShowDropdown(false);
   };
 
-  const dropdownLabel = (p: PurchaseItem) => {
-    const paid = p.paidAmount || 0;
-    const remaining = p.amount - paid;
-    return `${p.supplierName} — ${p.billNumber} | Bill: ${p.amount.toLocaleString()} | Paid: ${paid.toLocaleString()} | Remaining: ${remaining.toLocaleString()}`;
+  /* Submit Payment */
+  const savePayment = async (e: any) => {
+    e.preventDefault();
+
+    setMessage("");
+
+    const user = auth.currentUser;
+    if (!user) {
+      setMessage("You must be logged in.");
+      return;
+    }
+
+    if (!supplierName.trim()) {
+      setMessage("Please select a supplier.");
+      return;
+    }
+
+    const finalAmount = Number(amount);
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      setMessage("Enter a valid amount.");
+      return;
+    }
+
+    // If supplier doesn't exist → allow creation
+    let finalSupplierId = supplierId;
+    let finalSupplierName = supplierName.trim();
+
+    if (!finalSupplierId) {
+      const newSupplier = {
+        name: finalSupplierName,
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+      };
+
+      const ref = await addDoc(collection(db, "suppliers"), newSupplier);
+      finalSupplierId = ref.id;
+    }
+
+    await addDoc(collection(db, "expenses"), {
+      supplierId: finalSupplierId,
+      supplierName: finalSupplierName,
+      amount: finalAmount,
+      date,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+    });
+
+    setMessage("Payment recorded successfully!");
+
+    setSupplierId("");
+    setSupplierName("");
+    setAmount("");
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow">
-      <h1 className="text-2xl font-bold mb-4">Add Expense (Payment to Supplier)</h1>
+    <div className="max-w-xl mx-auto bg-white p-6 rounded shadow">
+      <h1 className="text-2xl font-bold mb-4">Add Supplier Payment</h1>
 
-      {message && <p className="text-green-600">{message}</p>}
-      {error && <p className="text-red-600">{error}</p>}
+      {message && (
+        <p className="mb-3 text-blue-600 border p-2 rounded bg-blue-50">
+          {message}
+        </p>
+      )}
 
-      <form onSubmit={submitExpense} className="space-y-4">
+      <form onSubmit={savePayment} className="space-y-4">
+        {/* Supplier Search */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Supplier Name"
+            className="w-full border p-2 rounded"
+            value={supplierName}
+            onChange={(e) => {
+              setSupplierName(e.target.value);
+              setShowDropdown(true);
+            }}
+            onFocus={() => setShowDropdown(true)}
+          />
 
-        <select
-          className="w-full border p-2 rounded"
-          value={selectedPurchase}
-          onChange={(e) => setSelectedPurchase(e.target.value)}
-          required
-        >
-          <option value="">Select Purchase Bill</option>
-          {purchaseList.map((p) => (
-            <option key={p.id} value={p.id}>
-              {dropdownLabel(p)}
-            </option>
-          ))}
-        </select>
+          {showDropdown && filteredSuppliers.length > 0 && (
+            <div className="absolute bg-white border rounded shadow w-full max-h-40 overflow-y-auto z-20">
+              {filteredSuppliers.map((s) => (
+                <button
+                  type="button"
+                  key={s.id}
+                  className="block w-full text-left p-2 hover:bg-gray-100"
+                  onClick={() => handleSelectSupplier(s)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-        <input
-          type="date"
-          className="w-full border p-2 rounded"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          required
-        />
-
+        {/* Amount */}
         <input
           type="number"
           placeholder="Amount Paid"
@@ -210,12 +170,18 @@ export default function ExpensePage() {
           required
         />
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-red-600 text-white p-3 rounded hover:bg-red-700"
-        >
-          {loading ? "Saving..." : "Add Expense"}
+        {/* Date */}
+        <input
+          type="date"
+          className="w-full border p-2 rounded"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+        />
+
+        {/* Submit */}
+        <button className="w-full bg-red-600 text-white p-3 rounded hover:bg-red-700">
+          Add Payment
         </button>
       </form>
     </div>
