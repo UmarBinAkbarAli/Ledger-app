@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Viewport } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import RegisterSW from "./register-sw";
 
 export const metadata = {
@@ -21,8 +22,9 @@ export default function RootLayout({
     <html lang="en">
       <link rel="manifest" href="/manifest.json" />
       <body>
-         <RegisterSW />
+        <RegisterSW />
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
