@@ -6,6 +6,9 @@ import { useState, useEffect } from "react";
 
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import IncomeForm from "@/components/forms/IncomeForm";
+import ExpenseForm from "@/components/forms/ExpenseForm";
+
 
 // Recharts
 import {
@@ -39,6 +42,10 @@ export default function DashboardPage() {
   const [pettyCash, setPettyCash] = useState(0);
   const [totalBankBalance, setTotalBankBalance] = useState(0);
   const [netFlow, setNetFlow] = useState(0);
+  const [showIncomeModal, setShowIncomeModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
 
   // Chart Data
   const [chartData, setChartData] = useState<any[]>([]);
@@ -172,7 +179,7 @@ export default function DashboardPage() {
     };
 
     loadSummary();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, refreshKey]);
 
   // -------------------------------------------
   // UI STARTS HERE
@@ -305,14 +312,72 @@ export default function DashboardPage() {
       {/*─────────────────────────*/}
       {/* QUICK ACTION BUTTONS    */}
       {/*─────────────────────────*/}
+      {/* QUICK ACTIONS */}
       <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <button
+          onClick={() => setShowIncomeModal(true)}
+          className="bg-green-600 text-white py-4 rounded-xl shadow hover:opacity-80"
+        >
+          + Add Income
+        </button>
+
+        <button
+          onClick={() => setShowExpenseModal(true)}
+          className="bg-red-600 text-white py-4 rounded-xl shadow hover:opacity-80"
+        >
+          + Add Expense
+        </button>
+
+        {/* Keep these as navigation */}
         <QuickAction title="Add Sale" url="/sales/new" color="bg-blue-600" />
         <QuickAction title="Add Purchase" url="/purchase/new" color="bg-blue-600" />
-        <QuickAction title="Add Income" url="/income" color="bg-blue-600" />
-        <QuickAction title="Add Expense" url="/expenses" color="bg-blue-600" />
       </div>
+      {showIncomeModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 relative">
+      <button
+        onClick={() => setShowIncomeModal(false)}
+        className="absolute top-3 right-3 text-gray-500 hover:text-black"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-bold mb-4">Add Income</h2>
+
+      <IncomeForm
+        onSuccess={() => {
+          setShowIncomeModal(false);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+    </div>
+  </div>
+)}
+
+{showExpenseModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 relative">
+      <button
+        onClick={() => setShowExpenseModal(false)}
+        className="absolute top-3 right-3 text-gray-500 hover:text-black"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-bold mb-4">Add Expense</h2>
+
+      <ExpenseForm
+        onSuccess={() => {
+          setShowExpenseModal(false);
+          setRefreshKey((k) => k + 1);
+        }}
+      />
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
