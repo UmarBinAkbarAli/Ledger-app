@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Theme */
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: #000;
+}
+
+/* PDF / Browser view */
+.pdf-area {
+  width: 100%;
+  background: white;
+}
+
+.pdf-page {
+  width: 100% !important;
+  padding: 20px;
+  background: white !important;
+  box-sizing: border-box !important;
+}
+
+/* ==========================================
+   PERFECT PRINT (A4 EXACT, MATCHES PDF)
+   ========================================== */
+@media print {
+
+  @page {
+    size: A4;
+    margin: 0; /* REMOVE ALL DEFAULT PRINT MARGINS */
+  }
+
+  html, body {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100%;
+    height: auto;
+    background: white !important;
+  }
+
+  /* Hide everything */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show only invoice content */
+  #pdf-area, #pdf-area * {
+    visibility: visible !important;
+  }
+
+  /* Lock invoice to A4 page */
+  #pdf-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    overflow: hidden !important;
+  }
+
+  .pdf-page {
+    padding: 12mm !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Remove rounded + shadow */
+  .shadow, .shadow-lg, .rounded, .rounded-xl {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure tables display exact like PDF */
+  table, th, td {
+    border-color: #e0e0e0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide print buttons */
+  .print\:hidden, .no-print {
+    display: none !important;
+  }
+}
