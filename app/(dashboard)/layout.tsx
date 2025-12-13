@@ -52,6 +52,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Link className="hover:text-blue-600" href="/expense-list">Expense</Link>
           <Link className="hover:text-blue-600" href="/customers">Customers</Link>
           <Link className="hover:text-blue-600" href="/supplier">Suppliers</Link>
+          <Link className="hover:text-blue-600" href="/bank-accounts">Bank Accounts</Link>
           <Link className="hover:text-blue-600" href="/bank-ledger">Bank Ledger</Link>
           <Link className="hover:text-blue-600" href="/petty-cash">Petty Cash</Link>
         </nav>

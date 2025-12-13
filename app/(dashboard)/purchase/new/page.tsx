@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   addDoc,
+  updateDoc,
   collection,
   serverTimestamp,
   getDocs,
@@ -31,6 +32,8 @@ export default function AddPurchasePage() {
   const [supplierCompany, setSupplierCompany] = useState("");
   const [supplierAddress, setSupplierAddress] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
+  const [chNo, setChNo] = useState("");
+  
 
   // Supplier dropdown
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -58,8 +61,41 @@ export default function AddPurchasePage() {
   // UI
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const purchaseId = searchParams.get("id");
+  const isEdit = Boolean(purchaseId);
 
-  // ---------------- Auto bill generation (PUR-0001 style) ----------------
+
+  // ------------ Edited Bill Functionality ------------ //
+
+  useEffect(() => {
+  if (!purchaseId) return;
+
+  const loadPurchase = async () => {
+    const ref = doc(db, "purchases", purchaseId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+
+    const d: any = snap.data();
+
+    setSupplierId(d.supplierId || "");
+    setSupplierName(d.supplierName || "");
+    setSupplierCompany(d.supplierCompany || "");
+    setSupplierAddress(d.supplierAddress || "");
+    setSupplierPhone(d.supplierPhone || "");
+    setBillNumber(d.billNumber || "");
+    setDate(d.date || "");
+    setPoNumber(d.poNumber || "");
+    setChNo(d.chNo || ""); // ✅ FIX
+    setTerms(d.terms || "CASH");
+    setItems(d.items || []);
+    setSubtotal(d.subtotal || 0);
+  };
+
+  loadPurchase();
+}, [purchaseId]);
+
+
+  // ---------------- Auto bill generation (PUR-0001 style) ---------------- //
   useEffect(() => {
     const loadLastBill = async (userId: string) => {
       try {
@@ -245,6 +281,7 @@ export default function AddPurchasePage() {
         billNumber,
         date,
         poNumber,
+        chNo,
         terms,
         items: validItems,
         subtotal: Number(subtotal),
@@ -254,10 +291,14 @@ export default function AddPurchasePage() {
         createdAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, "purchases"), purchaseObj);
+     if (isEdit && purchaseId) {
+  await updateDoc(doc(db, "purchases", purchaseId), purchaseObj);
+  router.push(`/purchase/${purchaseId}`);
+  } else {
+    const docRef = await addDoc(collection(db, "purchases"), purchaseObj);
+    router.push(`/purchase/${docRef.id}`);
+  }
 
-      // Redirect to purchase view (optional): /purchase/<id> or /purchase/list - adapt if you have view page
-      router.push(`/purchase/${docRef.id}`);
 
       setMessage("Purchase added successfully!");
 
@@ -340,7 +381,8 @@ export default function AddPurchasePage() {
             <input type="text" placeholder="Company Name" className="border border-gray-300 p-2 rounded" value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} />
             <input type="text" placeholder="Phone" className="border border-gray-300 p-2 rounded" value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)} />
             <input type="text" placeholder="Address" className="border border-gray-300 p-2 rounded md:col-span-2" value={supplierAddress} onChange={(e) => setSupplierAddress(e.target.value)} />
-            <input type="text" placeholder="CH No" className="border border-gray-300 p-2 rounded" value={""} readOnly />
+            <input type="text" placeholder="CH No" className="border border-gray-300 p-2 rounded" value={chNo} onChange={(e) => setChNo(e.target.value)}
+/>
           </div>
         </section>
 
