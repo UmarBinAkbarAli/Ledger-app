@@ -45,10 +45,31 @@ export default function DashboardPage() {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+
 
 
   // Chart Data
   const [chartData, setChartData] = useState<any[]>([]);
+
+  // Loadbank accounts for dashboard use
+  useEffect(() => {
+  const loadBanks = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const snap = await getDocs(
+      collection(db, "users", user.uid, "bankAccounts")
+    );
+
+    const list: any[] = [];
+    snap.forEach((d) => list.push(d.data()));
+    setBankAccounts(list);
+  };
+
+  loadBanks();
+}, []);
+
 
   // -------------------------------------------
   // LOAD DASHBOARD SUMMARY
@@ -123,7 +144,8 @@ export default function DashboardPage() {
         .map((d) => Number(d.data().amount || 0))
         .reduce((a, b) => a + b, 0);
 
-      setPettyCash(cashIn - cashOut);
+      const cashOpening = 0;
+        setPettyCash(cashOpening + cashIn - cashOut);
 
       // ------------------------------
       // TOTAL BANK BALANCE (BANK ONLY)
@@ -144,7 +166,10 @@ export default function DashboardPage() {
         .map((d) => Number(d.data().amount || 0))
         .reduce((a, b) => a + b, 0);
 
-      setTotalBankBalance(bankInTotal - bankOutTotal);
+      const bankOpeningTotal = bankAccounts.reduce(
+        (sum, b) => sum + Number(b.openingBalance || 0), 0 );
+      setTotalBankBalance(bankOpeningTotal + bankInTotal - bankOutTotal);
+
 
       // ------------------------------------
       // CASH FLOW CHART (DATE-WISE)
@@ -179,7 +204,7 @@ export default function DashboardPage() {
     };
 
     loadSummary();
-  }, [startDate, endDate, refreshKey]);
+  }, [startDate, endDate, refreshKey, bankAccounts]);
 
   // -------------------------------------------
   // UI STARTS HERE
