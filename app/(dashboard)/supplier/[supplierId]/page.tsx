@@ -13,6 +13,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import { Fragment } from "react";
 
 type PurchaseDoc = {
   id?: string;
@@ -22,6 +23,7 @@ type PurchaseDoc = {
   supplierAddress?: string;
   supplierPhone?: string;
   billNumber?: string;
+  chNo?: string;
   date?: any;
   items?: any[];
   subtotal?: number;
@@ -167,27 +169,30 @@ export default function SupplierLedgerPage() {
             date: purchaseDate,
             particular: it.description || p.billNumber || "Purchase",
             folio: p.billNumber || "",
+            size: it.size ?? "",
             qty: it.qty ?? "",
             rate: it.unitPrice ?? "",
             price: it.amount ?? (it.qty && it.unitPrice ? it.qty * it.unitPrice : p.total || 0),
             purchase: Number(it.amount ?? (it.qty && it.unitPrice ? it.qty * it.unitPrice : 0)),
             payment: 0,
+            chNo: p.chNo || "",
             type: "purchase",
           });
         });
       } else {
         built.push({
-          id: p.id,
-          date: purchaseDate,
-          particular: p.details || p.billNumber || "Purchase",
-          folio: p.billNumber || "",
-          qty: "",
-          rate: "",
-          price: p.total ?? p.subtotal ?? 0,
-          purchase: Number(p.total ?? p.subtotal ?? 0),
-          payment: 0,
-          type: "purchase",
-        });
+            id: p.id,
+            date: purchaseDate,
+            particular: p.details || p.billNumber || "Purchase",
+            folio: p.billNumber || "",
+            qty: "",
+            rate: "",
+            price: p.total ?? p.subtotal ?? 0,
+            purchase: Number(p.total ?? p.subtotal ?? 0),
+            payment: 0,
+            type: "purchase",
+          });
+
       }
     });
 
@@ -280,6 +285,68 @@ export default function SupplierLedgerPage() {
     });
   }, [rows, fromDate, toDate, search]);
 
+     const renderedRows = useMemo(() => {
+  const grouped: Record<string, any[]> = {};
+
+  filteredRows.forEach((r: any) => {
+    if (r.type === "purchase") {
+      if (!grouped[r.folio]) grouped[r.folio] = [];
+      grouped[r.folio].push(r);
+    }
+  });
+
+  return filteredRows.map((r: any) => {
+    const isLastPurchaseRow =
+      r.type === "purchase" &&
+      grouped[r.folio] &&
+      grouped[r.folio][grouped[r.folio].length - 1].id === r.id;
+
+    const purchaseTotal = isLastPurchaseRow
+      ? grouped[r.folio].reduce(
+          (sum: number, x: any) => sum + Number(x.price || 0),
+          0
+        )
+      : 0;
+
+    return (
+      <Fragment key={r.id}>
+        <tr className={`border-t ${r.type === "payment" ? "bg-yellow-50" : ""}`}>
+          <td className="p-3">{r.date ? String(r.date).slice(0, 10) : ""}</td>
+          <td className="p-3">{r.particular}</td>
+          <td className="p-3">{r.folio}</td>
+          <td className="p-3">{r.chNo || "-"}</td>
+          <td className="p-3 text-right">{r.size || "-"}</td>
+          <td className="p-3 text-right">{r.qty || "-"}</td>
+          <td className="p-3 text-right">{r.rate || "-"}</td>
+          <td className="p-3 text-right">
+            {Number(r.price || 0).toLocaleString()}
+          </td>
+          <td className="p-3 text-right">
+            {Number(r.purchase || 0).toLocaleString()}
+          </td>
+          <td className="p-3 text-right">
+            {Number(r.payment || 0).toLocaleString()}
+          </td>
+          <td className="p-3 text-right font-semibold">
+            {Number(r.balance || 0).toLocaleString()}
+          </td>
+        </tr>
+
+        {isLastPurchaseRow && (
+          <tr className="bg-gray-200 font-semibold border-b">
+            <td colSpan={7}></td>
+            <td className="p-3 text-right">Bill Total:</td>
+            <td className="p-3 text-right">
+              {purchaseTotal.toLocaleString()}
+            </td>
+            <td colSpan={2}></td>
+          </tr>
+        )}
+      </Fragment>
+    );
+  });
+}, [filteredRows]);
+
   if (loading) return <p className="p-6">Loading ledger...</p>;
   if (error) return <p className="p-6 text-red-600">{error}</p>;
   if (!supplier) return <p className="p-6">Supplier not found</p>;
@@ -355,6 +422,8 @@ export default function SupplierLedgerPage() {
               <th className="p-3 text-left">Date</th>
               <th className="p-3 text-left">Particular</th>
               <th className="p-3 text-left">Folio</th>
+              <th className="p-3 text-left">CH No</th>
+              <th className="p-3 text-right">Size</th>
               <th className="p-3 text-right">Qty</th>
               <th className="p-3 text-right">Rate</th>
               <th className="p-3 text-right">Price</th>
@@ -365,39 +434,42 @@ export default function SupplierLedgerPage() {
           </thead>
 
           <tbody>
-            {filteredRows.length === 0 ? (
-              <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={9}>No transactions</td>
-              </tr>
-            ) : (
-              filteredRows.map((r) => (
-                <tr key={r.id} className={`border-t ${r.type === "payment" ? "bg-yellow-50" : ""}`}>
-                  <td className="p-3">{r.date ? String(r.date).slice(0, 10) : ""}</td>
-                  <td className="p-3">{r.particular}</td>
-                  <td className="p-3">{r.folio}</td>
-                  <td className="p-3 text-right">{r.qty || "-"}</td>
-                  <td className="p-3 text-right">{r.rate || "-"}</td>
-                  <td className="p-3 text-right">{Number(r.price || 0).toLocaleString()}</td>
-                  <td className="p-3 text-right">{Number(r.purchase || 0).toLocaleString()}</td>
-                  <td className="p-3 text-right">{Number(r.payment || 0).toLocaleString()}</td>
-                  <td className="p-3 text-right font-semibold">{Number(r.balance || 0).toLocaleString()}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={11} className="p-6 text-center text-gray-500">
+                      No transactions
+                    </td>
+                  </tr>
+                ) : (
+                  renderedRows
+                )}
+              </tbody> 
         </table>
       </div>
 
       {/* FOOTER: Opening / Closing Balance (aligned right like customer ledger) */}
-      <div className="mt-4 flex justify-end">
-        <div className="text-right">
-          <div className="text-sm text-gray-500">Opening Balance</div>
-          <div className="font-semibold">{Number(supplier.previousBalance || 0).toLocaleString()}</div>
+                <div className="mt-6 flex justify-end">
+            <div className="w-72">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Opening Balance</span>
+                <span>
+                  {Number(supplier.previousBalance || 0).toLocaleString()}
+                </span>
+              </div>
 
-          <div className="mt-3 text-sm text-gray-500">Closing Balance</div>
-          <div className="text-2xl font-bold">{Number((filteredRows.length ? filteredRows[filteredRows.length - 1].balance : supplier.previousBalance) || 0).toLocaleString()}</div>
-        </div>
-      </div>
+              <div className="flex justify-between text-lg font-bold mt-2">
+                <span>Closing Balance</span>
+                <span>
+                  {Number(
+                    filteredRows.length
+                      ? filteredRows[filteredRows.length - 1].balance
+                      : supplier.previousBalance || 0
+                  ).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
     </div>
   );
 }
