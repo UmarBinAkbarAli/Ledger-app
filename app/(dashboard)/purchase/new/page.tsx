@@ -20,9 +20,9 @@ import { onAuthStateChanged } from "firebase/auth";
 
 type Item = {
   description: string;
-  size: number;
-  qty: number;
-  unitPrice: number;
+  size: string;
+  qty: string;
+  unitPrice: string;
   amount: number;
 };
 
@@ -56,7 +56,8 @@ export default function AddPurchasePage() {
   const [terms, setTerms] = useState("CASH");
 
   // Items & totals (same as sale invoice)
-  const [items, setItems] = useState<Item[]>([{ description: "", size: 1, qty: 1, unitPrice: 0, amount: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", size: "1", qty: "1", unitPrice: "0", amount: 0 }
+]);
   const [subtotal, setSubtotal] = useState(0);
 
   // UI
@@ -201,19 +202,19 @@ export default function AddPurchasePage() {
     setSubtotal(s);
   }, [items]);
 
- const updateItem = (index: number, field: keyof Item, value: any) => {
+const updateItem = (index: number, field: keyof Item, value: string) => {
   setItems((prev) => {
     const copy = [...prev];
     const item = { ...copy[index] };
 
     if (field === "description") item.description = value;
-    if (field === "size") item.size = Number(value || 0);      // ✅ FIX
-    if (field === "qty") item.qty = Number(value || 0);
-    if (field === "unitPrice") item.unitPrice = Number(value || 0);
+    if (field === "size") item.size = value;
+    if (field === "qty") item.qty = value;
+    if (field === "unitPrice") item.unitPrice = value;
 
-    const size = Number(item.size || 1);
-    const qty = Number(item.qty || 0);
-    const price = Number(item.unitPrice || 0);
+    const size = parseFloat(item.size || "0");
+    const qty = parseFloat(item.qty || "0");
+    const price = parseFloat(item.unitPrice || "0");
 
     item.amount = size * qty * price;
 
@@ -222,7 +223,8 @@ export default function AddPurchasePage() {
   });
 };
 
-  const addRow = () => setItems((p) => [...p, { description: "", size: 1,qty: 1, unitPrice: 0, amount: 0 }]);
+
+  const addRow = () => setItems((p) => [...p, { description: "", size: "1",qty: "1", unitPrice: "0", amount: 0 }]);
   const removeRow = (index: number) => setItems((p) => p.filter((_, i) => i !== index));
 
   // ---------------- Submit (save purchase) ----------------
@@ -321,7 +323,7 @@ export default function AddPurchasePage() {
       setDate(new Date().toISOString().slice(0, 10));
       setPoNumber("");
       setTerms("CASH");
-      setItems([{ description: "", size: 1, qty: 1, unitPrice: 0, amount: 0 }]);
+      setItems([{ description: "", size: "1", qty: "1", unitPrice: "0" , amount: 0 }]);
       setSubtotal(0);
     } catch (error: any) {
       setMessage("Error saving entry: " + (error?.message || error));
@@ -429,8 +431,8 @@ export default function AddPurchasePage() {
                 <td className="p-2 text-right">
                   <input
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
                     className="w-20 border border-gray-300 p-1 rounded text-right"
                     value={it.size}
                     onChange={(e) => updateItem(idx, "size", e.target.value)}
@@ -451,8 +453,8 @@ export default function AddPurchasePage() {
                 <td className="p-2 text-right">
                   <input
                     type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
                     className="w-28 border border-gray-300 p-1 rounded text-right"
                     value={it.unitPrice}
                     onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
