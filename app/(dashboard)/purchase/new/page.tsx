@@ -20,6 +20,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 type Item = {
   description: string;
+  size: number;
   qty: number;
   unitPrice: number;
   amount: number;
@@ -55,7 +56,7 @@ export default function AddPurchasePage() {
   const [terms, setTerms] = useState("CASH");
 
   // Items & totals (same as sale invoice)
-  const [items, setItems] = useState<Item[]>([{ description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+  const [items, setItems] = useState<Item[]>([{ description: "", size: 1, qty: 1, unitPrice: 0, amount: 0 }]);
   const [subtotal, setSubtotal] = useState(0);
 
   // UI
@@ -200,20 +201,28 @@ export default function AddPurchasePage() {
     setSubtotal(s);
   }, [items]);
 
-  const updateItem = (index: number, field: keyof Item, value: any) => {
-    setItems((prev) => {
-      const copy = [...prev];
-      const item = { ...copy[index] };
-      if (field === "description") item.description = value;
-      if (field === "qty") item.qty = Number(value || 0);
-      if (field === "unitPrice") item.unitPrice = Number(value || 0);
-      item.amount = Number((item.qty * item.unitPrice) || 0);
-      copy[index] = item;
-      return copy;
-    });
-  };
+ const updateItem = (index: number, field: keyof Item, value: any) => {
+  setItems((prev) => {
+    const copy = [...prev];
+    const item = { ...copy[index] };
 
-  const addRow = () => setItems((p) => [...p, { description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+    if (field === "description") item.description = value;
+    if (field === "size") item.size = Number(value || 0);      // ✅ FIX
+    if (field === "qty") item.qty = Number(value || 0);
+    if (field === "unitPrice") item.unitPrice = Number(value || 0);
+
+    const size = Number(item.size || 1);
+    const qty = Number(item.qty || 0);
+    const price = Number(item.unitPrice || 0);
+
+    item.amount = size * qty * price;
+
+    copy[index] = item;
+    return copy;
+  });
+};
+
+  const addRow = () => setItems((p) => [...p, { description: "", size: 1,qty: 1, unitPrice: 0, amount: 0 }]);
   const removeRow = (index: number) => setItems((p) => p.filter((_, i) => i !== index));
 
   // ---------------- Submit (save purchase) ----------------
@@ -312,7 +321,7 @@ export default function AddPurchasePage() {
       setDate(new Date().toISOString().slice(0, 10));
       setPoNumber("");
       setTerms("CASH");
-      setItems([{ description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+      setItems([{ description: "", size: 1, qty: 1, unitPrice: 0, amount: 0 }]);
       setSubtotal(0);
     } catch (error: any) {
       setMessage("Error saving entry: " + (error?.message || error));
@@ -398,6 +407,7 @@ export default function AddPurchasePage() {
               <thead>
                 <tr className="bg-gray-200 text-gray-700">
                   <th className="p-2 text-left">Description</th>
+                  <th className="p-2 text-right">Size</th>
                   <th className="p-2 text-right">Qty</th>
                   <th className="p-2 text-right">Unit Price</th>
                   <th className="p-2 text-right">Amount</th>
@@ -407,18 +417,57 @@ export default function AddPurchasePage() {
               <tbody>
                 {items.map((it, idx) => (
                   <tr key={idx} className="border-b">
-                    <td className="p-2">
-                      <input type="text" className="w-full border border-gray-300 p-1 rounded" value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} />
-                    </td>
-                    <td className="p-2 text-right">
-                      <input type="number" className="w-20 border border-gray-300 p-1 rounded text-right" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
-                    </td>
-                    <td className="p-2 text-right">
-                      <input type="number" className="w-28 border border-gray-300 p-1 rounded text-right" value={it.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", e.target.value)} />
-                    </td>
-                    <td className="p-2 text-right font-semibold text-blue-900">{Number(it.amount).toLocaleString()}</td>
-                    <td className="p-2 text-center"><button type="button" onClick={() => removeRow(idx)} className="text-red-600 hover:text-red-800 text-sm">Remove</button></td>
-                  </tr>
+                <td className="p-2">
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 p-1 rounded"
+                    value={it.description}
+                    onChange={(e) => updateItem(idx, "description", e.target.value)}
+                  />
+                </td>
+
+                <td className="p-2 text-right">
+                  <input
+                    type="number"
+                    className="w-20 border border-gray-300 p-1 rounded text-right"
+                    value={it.size}
+                    onChange={(e) => updateItem(idx, "size", e.target.value)}
+                  />
+                </td>
+
+                <td className="p-2 text-right">
+                  <input
+                    type="number"
+                    className="w-20 border border-gray-300 p-1 rounded text-right"
+                    value={it.qty}
+                    onChange={(e) => updateItem(idx, "qty", e.target.value)}
+                  />
+                </td>
+
+                <td className="p-2 text-right">
+                  <input
+                    type="number"
+                    className="w-28 border border-gray-300 p-1 rounded text-right"
+                    value={it.unitPrice}
+                    onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
+                  />
+                </td>
+
+                <td className="p-2 text-right font-semibold text-blue-900">
+                  {Number(it.amount).toLocaleString()}
+                </td>
+
+                <td className="p-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => removeRow(idx)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+
                 ))}
               </tbody>
             </table>
