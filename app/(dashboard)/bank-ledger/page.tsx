@@ -8,6 +8,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 export default function BankLedgerPage() {
   const [banks, setBanks] = useState<any[]>([]);
   const [selectedBank, setSelectedBank] = useState("");
+  const selectedBankObj = banks.find((b) => b.name === selectedBank);
   const [startDate, setStartDate] = useState(
   new Date(new Date().setDate(new Date().getDate() - 7))
     .toISOString()
@@ -119,7 +120,6 @@ useEffect(() => {
     const user = auth.currentUser;
     if (!user || !selectedBank) return;
 
-    // Yesterday income
     const incomeQuery = query(
       collection(db, "income"),
       where("userId", "==", user.uid),
@@ -128,7 +128,6 @@ useEffect(() => {
       where("date", "<", startDate)
     );
 
-    // Yesterday expenses
     const expenseQuery = query(
       collection(db, "expenses"),
       where("userId", "==", user.uid),
@@ -148,11 +147,13 @@ useEffect(() => {
       .map((d) => Number(d.data().amount || 0))
       .reduce((a, b) => a + b, 0);
 
-    setOpeningBalance(yIn - yOut);
+    const baseOpening = Number(selectedBankObj?.openingBalance || 0);
+    setOpeningBalance(baseOpening + yIn - yOut);
   };
 
   calcOpening();
-}, [selectedBank, startDate, endDate]);
+}, [selectedBank, startDate, selectedBankObj]);
+
 
 // Closing Balance Calculation
 useEffect(() => {
