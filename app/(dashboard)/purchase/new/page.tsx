@@ -100,7 +100,7 @@ export default function AddPurchasePage() {
     const loadLastBill = async (userId: string) => {
       try {
         const q = query(
-          collection(db, "purchase"),
+          collection(db, "purchases"),
           where("userId", "==", userId),
           orderBy("createdAt", "desc"),
           limit(1)
@@ -115,7 +115,7 @@ export default function AddPurchasePage() {
           if (!isNaN(num)) lastNumber = num;
         } else {
           // fallback scan
-          const qAll = query(collection(db, "purchase"), where("userId", "==", userId));
+          const qAll = query(collection(db, "purchases"), where("userId", "==", userId));
           const snapAll = await getDocs(qAll);
           snapAll.forEach((d) => {
             const bill = (d.data() as any).billNumber || "";

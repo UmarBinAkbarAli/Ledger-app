@@ -5,11 +5,15 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { generatePDF } from "@/app/utils/pdfGenerator";
+import { useRouter } from "next/navigation";
+
 
 export default function PurchaseDetailsPage() {
   const { purchaseId } = useParams();
   const [purchase, setPurchase] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
 
   useEffect(() => {
     if (!purchaseId) return;
@@ -154,6 +158,11 @@ export default function PurchaseDetailsPage() {
 
       {/* ACTION BUTTONS */}
       <div className="mt-4 flex gap-3">
+         <button
+            onClick={() => router.push(`/purchase/new?id=${purchase.id}`)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+            Edit Invoice
+          </button>
         <button
           onClick={() => window.print()}
           className="print:hidden px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
