@@ -428,7 +428,9 @@ export default function AddPurchasePage() {
 
                 <td className="p-2 text-right">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="w-20 border border-gray-300 p-1 rounded text-right"
                     value={it.size}
                     onChange={(e) => updateItem(idx, "size", e.target.value)}
@@ -437,7 +439,9 @@ export default function AddPurchasePage() {
 
                 <td className="p-2 text-right">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="w-20 border border-gray-300 p-1 rounded text-right"
                     value={it.qty}
                     onChange={(e) => updateItem(idx, "qty", e.target.value)}
@@ -446,7 +450,9 @@ export default function AddPurchasePage() {
 
                 <td className="p-2 text-right">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="w-28 border border-gray-300 p-1 rounded text-right"
                     value={it.unitPrice}
                     onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
