@@ -480,6 +480,7 @@ const handleSubmit = async (e: any) => {
                   <td className="p-2">
                     <input
                       type="text"
+                      inputMode="numeric"
                       className="w-full border border-gray-300 p-1 rounded"
                       value={it.description}
                       onChange={(e) => updateItem(idx, "description", e.target.value)}
@@ -487,7 +488,8 @@ const handleSubmit = async (e: any) => {
                   </td>
                   <td className="p-2 text-right">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       className="w-20 border border-gray-300 p-1 rounded text-right"
                       value={it.qty}
                       onChange={(e) => updateItem(idx, "qty", e.target.value)}

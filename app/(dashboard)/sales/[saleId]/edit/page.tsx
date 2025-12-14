@@ -283,7 +283,10 @@ export default function EditSalePage() {
               onChange={(e) => setTerms(e.target.value)}
             >
               <option value="CASH">CASH</option>
-              <option value="CREDIT">CREDIT</option>
+              <option value="15">15 Days</option>
+              <option value="30">30 Days</option>
+              <option value="45">45 Days</option>
+              <option value="60">60 Days</option>
             </select>
           </div>
         </section>
@@ -404,7 +407,8 @@ export default function EditSalePage() {
 
                     <td className="p-2 text-right">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="w-20 border border-gray-300 p-1 rounded text-right"
                         value={it.qty}
                         onChange={(e) =>
@@ -415,7 +419,8 @@ export default function EditSalePage() {
 
                     <td className="p-2 text-right">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="w-28 border border-gray-300 p-1 rounded text-right"
                         value={it.unitPrice}
                         onChange={(e) =>
