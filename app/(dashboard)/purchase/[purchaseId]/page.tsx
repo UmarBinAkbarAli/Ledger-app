@@ -53,10 +53,10 @@ export default function PurchaseDetailsPage() {
           <header className="mb-6 flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-blue-900">Purchase Invoice</h1>
-              <p className="text-sm text-gray-600">{purchase.supplierName}</p>
               {purchase.supplierCompany && (
-                <p className="text-sm text-gray-600">{purchase.supplierCompany}</p>
+                <p className="text-sm font-semibold text-gray-600">{purchase.supplierCompany}</p>
               )}
+              <p className="text-sm text-gray-600">{purchase.supplierName}</p>
               {purchase.supplierPhone && (
                 <p className="text-sm text-gray-600">Phone: {purchase.supplierPhone}</p>
               )}
