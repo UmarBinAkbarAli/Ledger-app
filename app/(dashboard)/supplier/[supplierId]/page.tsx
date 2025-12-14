@@ -354,10 +354,22 @@ export default function SupplierLedgerPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold">{supplier.name || supplier.supplierName}</h1>
-          <p className="text-sm text-gray-600">{supplier.company || supplier.supplierCompany || ""}</p>
-        </div>
+                    <div>
+              {/* Company name = primary */}
+              <h2 className="text-xl font-bold">
+                {supplier.company ||
+                  supplier.supplierCompany ||
+                  supplier.name ||
+                  supplier.supplierName}
+              </h2>
+
+              {/* Person name = secondary */}
+              {(supplier.company || supplier.supplierCompany) && (
+                <p className="text-sm text-gray-600">
+                  {supplier.name || supplier.supplierName}
+                </p>
+              )}
+            </div>
 
         <div className="flex gap-2">
           <button

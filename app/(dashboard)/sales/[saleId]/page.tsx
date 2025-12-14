@@ -99,8 +99,8 @@ export default function SaleInvoicePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <div className="bg-blue-800 text-white px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">BILL TO</div>
-              <div className="text-sm font-semibold">{sale.customerName}</div>
-              {sale.customerCompany && <div className="text-sm">{sale.customerCompany}</div>}
+              {sale.customerCompany && <div className="text-sm font-semibold">{sale.customerCompany}</div>}
+              <div className="text-sm">{sale.customerName}</div>
               {sale.customerAddress && <div className="text-sm">{sale.customerAddress}</div>}
               {sale.customerPhone && <div className="text-sm">Phone: {sale.customerPhone}</div>}
               {sale.customerChNo && <div className="text-sm">CH No: {sale.customerChNo}</div>}
@@ -156,10 +156,10 @@ export default function SaleInvoicePage() {
                 <div className="flex justify-between font-bold text-lg"><span>TOTAL</span><span>{fmt(total)}</span></div>
               </div>
 
-              <div className="mt-3 text-sm">
+        {/*    <div className="mt-3 text-sm">
                 <div className="flex justify-between"><span>Paid</span><span>{fmt(paid)}</span></div>
                 <div className="flex justify-between"><span>Remaining</span><span className={remaining > 0 ? "text-red-600" : "text-green-600"}>{fmt(remaining)}</span></div>
-              </div>
+              </div> */}
             </div>
           </div>
 

@@ -317,13 +317,23 @@ export default function CustomerLedgerPage(): JSX.Element {
     <div className="w-full max-w-[1200px] mx-auto p-4">
       {/* HEADER */}
       <div className="flex items-center justify-between mb-4 print:hidden">
-        <div>
-          <h2 className="text-xl font-bold">{customer?.name ?? "Customer"}</h2>
-          <p className="text-sm text-gray-600">{customer?.company ?? ""}</p>
-          <p className="text-sm text-gray-600">
-            Phone: {customer?.phone ?? ""}
-          </p>
-        </div>
+                    <div>
+              {/* Company name = primary */}
+              <h2 className="text-xl font-bold">
+                {customer?.company || customer?.name || "Customer"}
+              </h2>
+
+              {/* Person name = secondary */}
+              {customer?.company && (
+                <p className="text-sm text-gray-600">
+                  {customer?.name}
+                </p>
+              )}
+
+              <p className="text-sm text-gray-600">
+                Phone: {customer?.phone ?? ""}
+              </p>
+            </div>
 
         <div className="flex gap-2">
             {/* Add Sale */}
