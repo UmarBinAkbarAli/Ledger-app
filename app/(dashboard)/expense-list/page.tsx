@@ -76,25 +76,27 @@ export default function ExpenseListPage() {
 
   try {
     const expenseRef = doc(db, "expenses", expense.id);
-    const purchaseRef = doc(db, "purchase", expense.purchaseId);
 
-    await runTransaction(db, async (tx) => {
-      // 1) Get purchase document
-      const purchaseSnap = await tx.get(purchaseRef);
-      if (!purchaseSnap.exists()) return;
+      await runTransaction(db, async (tx) => {
+        // ✅ Only rollback purchase if linked
+        if (expense.purchaseId) {
+          const purchaseRef = doc(db, "purchases", expense.purchaseId);
+          const purchaseSnap = await tx.get(purchaseRef);
 
-      const purchase = purchaseSnap.data();
-      const oldPaid = Number(purchase.paidAmount || 0);
-      const newPaid = oldPaid - Number(expense.amount);
+          if (purchaseSnap.exists()) {
+            const purchase = purchaseSnap.data();
+            const oldPaid = Number(purchase.paidAmount || 0);
+            const newPaid = oldPaid - Number(expense.amount);
 
-      // 2) Update purchase paidAmount
-      tx.update(purchaseRef, {
-        paidAmount: newPaid < 0 ? 0 : newPaid,
+            tx.update(purchaseRef, {
+              paidAmount: newPaid < 0 ? 0 : newPaid,
+            });
+          }
+        }
+
+        // ✅ Always delete expense
+        tx.delete(expenseRef);
       });
-
-      // 3) Delete expense record
-      tx.delete(expenseRef);
-    });
 
     // Update UI instantly
     setExpenseList((prev) => prev.filter((x) => x.id !== expense.id));

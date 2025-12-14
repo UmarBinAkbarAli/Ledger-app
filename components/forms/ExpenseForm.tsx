@@ -77,6 +77,28 @@ export default function ExpenseForm({
     loadBanks();
   }, []);
 
+  const getOrCreateSupplier = async (
+  name: string,
+  userId: string
+): Promise<string> => {
+  const q = query(
+    collection(db, "suppliers"),
+    where("userId", "==", userId),
+    where("name", "==", name.trim())
+  );
+
+  const snap = await getDocs(q);
+  if (!snap.empty) return snap.docs[0].id;
+
+  const ref = await addDoc(collection(db, "suppliers"), {
+    name: name.trim(),
+    userId,
+    createdAt: serverTimestamp(),
+  });
+
+  return ref.id;
+};
+
   const savePayment = async (e: any) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -85,25 +107,37 @@ export default function ExpenseForm({
     const finalAmount = Number(amount);
     if (finalAmount <= 0) return;
 
-    await addDoc(collection(db, "expenses"), {
-      supplierId,
-      supplierName,
-      amount: finalAmount,
-      date,
-      paymentMethod,
-      bankName,
-      notes,
-      userId: user.uid,
-      createdAt: serverTimestamp(),
-    });
+  let finalSupplierId = supplierId;
 
-    setMessage("Payment added");
-    setSupplierName("");
-    setAmount("");
-    setNotes("");
+if (!finalSupplierId && supplierName.trim()) {
+  finalSupplierId = await getOrCreateSupplier(
+    supplierName,
+    user.uid
+  );
+}
+
+await addDoc(collection(db, "expenses"), {
+  supplierId: finalSupplierId,
+  supplierName: supplierName.trim(),
+  amount: finalAmount,
+  date,
+  paymentMethod,
+  bankName,
+  notes,
+  userId: user.uid,
+  createdAt: serverTimestamp(),
+}); setSupplierId("");
+
+
+      setMessage("Payment added");
+      setSupplierName("");
+      setSupplierId("");
+      setAmount("");
+      setNotes("");
+
 
     onSuccess?.();
-  };
+  }; 
 
   return (
     <form onSubmit={savePayment} className="space-y-4">

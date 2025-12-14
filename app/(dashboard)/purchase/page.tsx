@@ -17,6 +17,7 @@ type Purchase = {
   id: string;
   supplierId: string;
   supplierName: string;
+  supplierCompany?: string;
   billNumber: string;
   date: string;
   total: number;
@@ -59,6 +60,7 @@ export default function PurchaseListPage() {
             id: d.id,
             supplierId: dd.supplierId || "",
             supplierName: dd.supplierName || "",
+            supplierCompany: dd.supplierCompany || "", // ✅ ADD
             billNumber: dd.billNumber || "",
             date: dd.date || "",
             total: Number(dd.total || dd.subtotal || 0),
@@ -161,6 +163,7 @@ export default function PurchaseListPage() {
 
                 const matchSearch =
                   p.supplierName.toLowerCase().includes(q) ||
+                  (p.supplierCompany || "").toLowerCase().includes(q) ||
                   p.billNumber.toLowerCase().includes(q) ||
                   String(p.total).includes(q);
 
@@ -179,7 +182,7 @@ export default function PurchaseListPage() {
 
                 return (
                   <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.supplierName}</td>
+                    <td className="p-3">{p.supplierCompany || p.supplierName}</td>
                     <td className="p-3">{p.billNumber}</td>
                     <td className="p-3 text-right">{p.total.toLocaleString()}</td>
                     <td className="p-3 text-right">{p.paidAmount.toLocaleString()}</td>

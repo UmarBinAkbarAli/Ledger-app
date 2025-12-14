@@ -7,6 +7,7 @@ interface CustomerType {
   phone?: string;
   address?: string;
   previousBalance?: number;
+  currentBalance?: number;
   userId?: string;
   createdAt?: any;
 }
@@ -34,10 +35,48 @@ export default function CustomersPage() {
 
         const snap = await getDocs(q);
 
-        const list: CustomerType[] = snap.docs.map((d) => ({
-        ...(d.data() as CustomerType),
-        id: d.id,
-        }));
+        const list: CustomerType[] = [];
+
+            for (const d of snap.docs) {
+              const customer = d.data() as CustomerType;
+              const customerId = d.id;
+
+              // 1️⃣ Total sales
+              const salesSnap = await getDocs(
+                query(
+                  collection(db, "sales"),
+                  where("customerId", "==", customerId),
+                  where("userId", "==", user.uid)
+                )
+              );
+
+              const totalSales = salesSnap.docs
+                .map((s) => Number(s.data().total || s.data().subtotal || 0))
+                .reduce((a, b) => a + b, 0);
+
+              // 2️⃣ Total payments received
+              const paymentSnap = await getDocs(
+                query(
+                  collection(db, "income"),
+                  where("customerId", "==", customerId),
+                  where("userId", "==", user.uid)
+                )
+              );
+
+              const totalPayments = paymentSnap.docs
+                .map((p) => Number(p.data().amount || 0))
+                .reduce((a, b) => a + b, 0);
+
+              const opening = Number(customer.previousBalance || 0);
+              const currentBalance = opening + totalSales - totalPayments;
+
+              list.push({
+                ...customer,
+                id: customerId,
+                currentBalance, // ✅ REAL BALANCE
+              });
+            }
+
 
         // Sort alphabetically for clean UI
         list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -94,7 +133,7 @@ export default function CustomersPage() {
               <th className="p-3 text-left">Customer</th>
               <th className="p-3 text-left">Company</th>
               <th className="p-3 text-left">Phone</th>
-              <th className="p-3 text-right">Previous Balance</th>
+              <th className="p-3 text-right">Current Balance</th>
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
@@ -109,9 +148,7 @@ export default function CustomersPage() {
                   <td className="p-3">{c.name}</td>
                   <td className="p-3">{c.company || "-"}</td>
                   <td className="p-3">{c.phone || "-"}</td>
-                  <td className="p-3 text-right">
-                    {Number(c.previousBalance || 0).toLocaleString()}
-                  </td>
+                  <td className="p-3 text-right font-semibold"> {Number(c.currentBalance || 0).toLocaleString()} </td>
 
                   <td className="p-3 flex gap-2">
                     <Link

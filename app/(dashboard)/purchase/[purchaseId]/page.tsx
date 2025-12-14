@@ -66,11 +66,16 @@ export default function PurchaseDetailsPage() {
             </div>
 
             <div className="text-right text-sm text-gray-700">
-              <div className="font-semibold">Bill No: {purchase.billNumber}</div>
-              <div>Date: {purchase.date}</div>
-              {purchase.terms && <div>Terms: {purchase.terms}</div>}
-              {purchase.poNumber && <div>PO No: {purchase.poNumber}</div>}
-            </div>
+                <div className="font-semibold">Bill No: {purchase.billNumber}</div>
+                <div>Date: {purchase.date}</div>
+
+                {purchase.chNo && (
+                  <div>CH No: {purchase.chNo}</div>
+                )}
+
+                {purchase.terms && <div>Terms: {purchase.terms}</div>}
+                {purchase.poNumber && <div>PO No: {purchase.poNumber}</div>}
+              </div>
           </header>
 
           {/* TOTAL SUMMARY */}
@@ -122,6 +127,7 @@ export default function PurchaseDetailsPage() {
                   <thead className="bg-gray-100 text-gray-700">
                     <tr>
                       <th className="p-2 text-left">Description</th>
+                      <th className="p-2 text-right">Size</th>
                       <th className="p-2 text-right">Qty</th>
                       <th className="p-2 text-right">Unit Price</th>
                       <th className="p-2 text-right">Amount</th>
@@ -132,13 +138,10 @@ export default function PurchaseDetailsPage() {
                     {items.map((it: any, idx: number) => (
                       <tr key={idx} className="border-t">
                         <td className="p-2">{it.description}</td>
+                        <td className="p-2 text-right">{it.size || "-"}</td>
                         <td className="p-2 text-right">{it.qty}</td>
-                        <td className="p-2 text-right">
-                          {Number(it.unitPrice).toLocaleString()}
-                        </td>
-                        <td className="p-2 text-right font-semibold">
-                          {Number(it.amount).toLocaleString()}
-                        </td>
+                        <td className="p-2 text-right">{Number(it.unitPrice).toLocaleString()}</td>
+                        <td className="p-2 text-right font-semibold">{Number(it.amount).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>

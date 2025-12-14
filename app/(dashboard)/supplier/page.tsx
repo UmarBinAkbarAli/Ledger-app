@@ -5,6 +5,7 @@ import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+
 interface SupplierType {
   id: string;
   name?: string;
@@ -12,6 +13,7 @@ interface SupplierType {
   phone?: string;
   address?: string;
   previousBalance?: number;
+  currentBalance?: number;
   userId?: string;
   createdAt?: any;
 }
@@ -34,10 +36,48 @@ export default function SuppliersPage() {
 
         const snap = await getDocs(q);
 
-        const list: SupplierType[] = snap.docs.map((d) => ({
-          ...(d.data() as SupplierType),
-          id: d.id,
-        }));
+        const list: SupplierType[] = [];
+
+for (const d of snap.docs) {
+  const supplier = d.data() as SupplierType;
+  const supplierId = d.id;
+
+            // 1️⃣ Fetch purchases
+            const purchaseSnap = await getDocs(
+              query(
+                collection(db, "purchases"),
+                where("supplierId", "==", supplierId),
+                where("userId", "==", user.uid)
+              )
+            );
+
+            const totalPurchases = purchaseSnap.docs
+              .map((p) => Number(p.data().total || p.data().subtotal || 0))
+              .reduce((a, b) => a + b, 0);
+
+            // 2️⃣ Fetch expenses (payments)
+            const expenseSnap = await getDocs(
+              query(
+                collection(db, "expenses"),
+                where("supplierId", "==", supplierId),
+                where("userId", "==", user.uid)
+              )
+            );
+
+            const totalPayments = expenseSnap.docs
+              .map((e) => Number(e.data().amount || 0))
+              .reduce((a, b) => a + b, 0);
+
+            const opening = Number(supplier.previousBalance || 0);
+            const currentBalance = opening + totalPurchases - totalPayments;
+
+            list.push({
+              ...supplier,
+              id: supplierId,
+              currentBalance, // ✅ REAL BALANCE
+            });
+          }
+
 
         // Sort alphabetically like customers page
         list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -94,7 +134,7 @@ export default function SuppliersPage() {
               <th className="p-3 text-left">Supplier</th>
               <th className="p-3 text-left">Company</th>
               <th className="p-3 text-left">Phone</th>
-              <th className="p-3 text-right">Previous Balance</th>
+              <th className="p-3 text-right">Current Balance</th>
               <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
@@ -109,10 +149,7 @@ export default function SuppliersPage() {
                   <td className="p-3">{s.name}</td>
                   <td className="p-3">{s.company || "-"}</td>
                   <td className="p-3">{s.phone || "-"}</td>
-                  <td className="p-3 text-right">
-                    {Number(s.previousBalance || 0).toLocaleString()}
-                  </td>
-
+                  <td className="p-3 text-right font-semibold"> {Number(s.currentBalance || 0).toLocaleString()} </td>
                   <td className="p-3 flex gap-2">
                     <Link
                       href={`/supplier/${s.id}`}

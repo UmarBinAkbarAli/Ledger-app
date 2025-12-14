@@ -16,6 +16,7 @@ type Sale = {
   id: string;
   customerId: string;
   customerName: string;
+  customerCompany?: string;   // ✅ ADD
   billNumber: string;
   date: string;
   total: number;
@@ -58,6 +59,7 @@ export default function SalesListPage() {
             id: d.id,
             customerId: dd.customerId || "",
             customerName: dd.customerName || "",
+            customerCompany: dd.customerCompany || "",
             billNumber: dd.billNumber || "",
             date: dd.date || "",
             total: Number(dd.total || 0),
@@ -167,6 +169,7 @@ export default function SalesListPage() {
 
                 const matchSearch =
                   s.customerName.toLowerCase().includes(q) ||
+                  (s.customerCompany || "").toLowerCase().includes(q) ||
                   s.billNumber.toLowerCase().includes(q) ||
                   String(s.total).includes(q);
 
@@ -185,7 +188,7 @@ export default function SalesListPage() {
 
                 return (
                   <tr key={s.id} className="border-t">
-                    <td className="p-3">{s.customerName}</td>
+                    <td className="p-3">{s.customerCompany || s.customerName}</td>
                     <td className="p-3">{s.billNumber}</td>
                     <td className="p-3 text-right">{s.total.toLocaleString()}</td>
                     <td className="p-3 text-right">{s.paidAmount.toLocaleString()}</td>
