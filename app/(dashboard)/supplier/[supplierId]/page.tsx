@@ -427,24 +427,67 @@ export default function SupplierLedgerPage() {
         </div>
       </div>
 
-      <div id="ledger-area" className="bg-white rounded shadow overflow-auto">
-        <table className="min-w-full">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3 text-left">Date</th>
-              <th className="p-3 text-left">Particular</th>
-              <th className="p-3 text-left">Folio</th>
-              <th className="p-3 text-left">CH No</th>
-              <th className="p-3 text-right">Size</th>
-              <th className="p-3 text-right">Qty</th>
-              <th className="p-3 text-right">Rate</th>
-              <th className="p-3 text-right">Price</th>
-              <th className="p-3 text-right">Purchase</th>
-              <th className="p-3 text-right">Payment</th>
-              <th className="p-3 text-right">Balance</th>
-            </tr>
-          </thead>
 
+      <div id="pdf-area" className="bg-white rounded shadow overflow-auto">
+
+            {/* PRINT HEADER */}
+      <div className="ledger-print-header hidden print:block mb-6">
+        <div className="flex justify-between items-start border-b pb-3">
+          {/* LEFT: Issuer */}
+          <div>
+            <h2 className="text-lg font-bold uppercase">
+              Boxilla Packages
+            </h2>
+            <div className="text-sm">
+              Plot # 470, Bhangoria Goth, Federal B. Industrial Area, Karachi
+            </div>
+            <div className="text-sm">
+              Phone: 0312-8246221
+            </div>
+          </div>
+
+          {/* RIGHT: Supplier */}
+          <div className="text-right text-sm">
+            <div className="font-bold uppercase mb-1">
+              Supplier Statement
+            </div>
+
+            <div className="font-bold text-base">
+              {supplier.company ||
+                supplier.supplierCompany ||
+                supplier.name ||
+                supplier.supplierName}
+            </div>
+
+            {(supplier.company || supplier.supplierCompany) && (
+              <div>
+                {supplier.name || supplier.supplierName}
+              </div>
+            )}
+
+            <div className="mt-1">
+              Date: {fromDate} → {toDate}
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <table className="w-full print:text-[11px] print:leading-tight">
+         <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 text-left">Date</th>
+                  <th className="p-2 text-left">Particular</th>
+                  <th className="p-2 text-left">Folio</th>
+                  <th className="p-2 text-left">CH No</th>
+                  <th className="p-2 text-right">Size</th>
+                  <th className="p-2 text-right">Qty</th>
+                  <th className="p-2 text-right">Rate</th>
+                  <th className="p-2 text-right">Price</th>
+                  <th className="p-2 text-right">Purchase</th>
+                  <th className="p-2 text-right">Payment</th>
+                  <th className="p-2 text-right">Balance</th>
+                </tr>
+              </thead>
           <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>

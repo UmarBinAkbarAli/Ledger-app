@@ -262,14 +262,6 @@ useEffect(() => {
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 
-        {/* Opening Balance */}
-        <div className="bg-gray-50 p-4 border rounded shadow-sm">
-          <p className="text-sm text-gray-600">Opening Balance</p>
-          <p className="text-2xl font-bold text-gray-800">
-            {openingBalance.toLocaleString()}
-          </p>
-        </div>
-
         {/* Bank In */}
         <div className="bg-green-50 p-4 border border-green-200 rounded shadow-sm">
           <p className="text-sm text-green-700">Money In</p>
@@ -285,15 +277,17 @@ useEffect(() => {
             {bankOut.toLocaleString()}
           </p>
         </div>
-      </div>
 
-      {/* Closing Balance */}
-      <div className="bg-blue-50 p-5 border border-blue-200 rounded shadow-sm mb-8">
+       {/* Closing Balance */}
+      <div className="bg-blue-50 p-5 border border-blue-200 rounded shadow-sm">
         <p className="text-sm text-blue-700">Closing Balance</p>
-        <p className="text-3xl font-bold text-blue-900">
+        <p className="text-2xl font-bold text-blue-900">
           {closingBalance.toLocaleString()}
         </p>
       </div>
+
+      </div>
+
 
       {/* TRANSACTION TABLE */}
 <div className="bg-white border rounded shadow-sm p-4">

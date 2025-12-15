@@ -282,28 +282,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/*─────────────────────────*/}
-      {/* SUMMARY CARDS           */}
-      {/*─────────────────────────*/}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <SummaryCard label="Petty Cash" value={pettyCash} color="yellow" />
-        <SummaryCard label="Bank Balance" value={totalBankBalance} color="blue" />
-        <SummaryCard label="Total Income" value={totalIncome} color="green" />
-        <SummaryCard label="Total Expense" value={totalExpense} color="red" />
-      </div>
-
-      {/* NET FLOW */}
-      <div className="p-5 bg-gray-100 border rounded shadow mb-10">
-        <p className="text-sm text-gray-600">Net Flow (Income − Expense)</p>
-        <p
-          className={`text-3xl font-bold ${
-            netFlow >= 0 ? "text-green-700" : "text-red-700"
-          }`}
-        >
-          {netFlow.toLocaleString()}
-        </p>
-      </div>
-
             {/* QUICK ACTION BUTTONS    */}
       <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
 

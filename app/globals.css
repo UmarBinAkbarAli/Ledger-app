@@ -9,6 +9,10 @@ body {
   color: #000;
 }
 
+/* Ledger print header – B/W friendly */
+.ledger-print-header {
+  color: #000;
+}
 /* PDF / Browser view */
 .pdf-area {
   width: 100%;
@@ -27,9 +31,19 @@ body {
    ========================================== */
 @media print {
 
+  .ledger-print-header h2,
+  .ledger-print-header .text-xl,
+  .ledger-print-header .font-bold {
+    font-weight: 700 !important;
+  }
+
+  .ledger-print-header {
+    page-break-inside: avoid;
+  }
+
   @page {
     size: A4;
-    margin: 0; /* REMOVE ALL DEFAULT PRINT MARGINS */
+    margin: 12mm;
   }
 
   html, body {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth } from "@/lib/firebase";
 
 
@@ -18,6 +18,77 @@ export default function PettyCashPage() {
 
   const cashInList = transactions.filter((t) => t.type === "Income");
   const cashOutList = transactions.filter((t) => t.type === "Expense");
+  const [initialOpening, setInitialOpening] = useState<number | null>(null);
+  const [openingDate, setOpeningDate] = useState<string | null>(null);
+  const [openingExists, setOpeningExists] = useState(false);
+  const [openingInput, setOpeningInput] = useState("");
+  const [openingInputDate, setOpeningInputDate] = useState("");
+
+  // CHECK IF OPENING BALANCE EXISTS
+  useEffect(() => {
+  const checkOpening = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const snap = await getDocs(
+      query(
+        collection(db, "pettyCashOpening"),
+        where("userId", "==", user.uid)
+      )
+    );
+
+    if (!snap.empty) {
+      setOpeningExists(true);
+    }
+  };
+
+  checkOpening();
+}, []);
+
+
+  const saveOpeningBalance = async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  if (!openingInput || !openingInputDate) {
+    alert("Please enter opening balance and date");
+    return;
+  }
+
+  await addDoc(collection(db, "pettyCashOpening"), {
+    userId: user.uid,
+    openingBalance: Number(openingInput),
+    openingDate: openingInputDate,
+    createdAt: serverTimestamp(),
+  });
+
+  setOpeningExists(true);
+};
+
+  
+  // FETCH INITIAL OPENING BALANCE ONCE
+  useEffect(() => {
+  const loadInitialOpening = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const snap = await getDocs(
+      query(
+        collection(db, "pettyCashOpening"),
+        where("userId", "==", user.uid)
+      )
+    );
+
+    if (!snap.empty) {
+      const data = snap.docs[0].data();
+      setInitialOpening(Number(data.openingBalance || 0));
+      setOpeningDate(data.openingDate);
+    }
+  };
+
+  loadInitialOpening();
+}, []);
+
 
 
       // FETCH CASH IN / CASH OUT FOR SELECTED DATE
@@ -76,54 +147,68 @@ export default function PettyCashPage() {
     loadData();
   }, [selectedDate]);
 
-    // CALCULATE OPENING BALANCE (Previous Day Closing Balance)
-  useEffect(() => {
-    const calculateOpeningBalance = async () => {
-        setLoading(true); // START SPINNER
-      const user = auth.currentUser;
-      if (!user) return;
+      // CALCULATE OPENING BALANCE (CORRECT – CUMULATIVE)
+      useEffect(() => {
+        const calculateOpeningBalance = async () => {
+          const user = auth.currentUser;
+          if (!user) return;
 
-      // Get yesterday's date
-      const d = new Date(selectedDate);
-      d.setDate(d.getDate() - 1);
-      const yesterday = d.toISOString().split("T")[0];
+          // If no opening exists yet
+          if (!openingDate || initialOpening === null) {
+            setOpeningBalance(0);
+            return;
+          }
 
-      const incomeRef = collection(db, "income");
-      const expenseRef = collection(db, "expenses");
+          // If selected date is BEFORE opening date
+          if (selectedDate < openingDate) {
+            setOpeningBalance(0);
+            return;
+          }
 
-      const qIncome = query(
-        incomeRef,
-        where("userId", "==", user.uid),
-        where("date", "==", yesterday),
-        where("paymentMethod", "==", "CASH")
-      );
+          // If selected date IS opening date
+          if (selectedDate === openingDate) {
+            setOpeningBalance(initialOpening);
+            return;
+          }
 
-      const qExpense = query(
-        expenseRef,
-        where("userId", "==", user.uid),
-        where("date", "==", yesterday),
-        where("paymentMethod", "==", "CASH")
-      );
+          // Otherwise: cumulative calculation
+          const incomeRef = collection(db, "income");
+          const expenseRef = collection(db, "expenses");
 
-      const incomeSnap = await getDocs(qIncome);
-      const expenseSnap = await getDocs(qExpense);
+          const qIncome = query(
+            incomeRef,
+            where("userId", "==", user.uid),
+            where("paymentMethod", "==", "CASH"),
+            where("date", "<", selectedDate)
+          );
 
-      const yesterdayIncome = incomeSnap.docs
-        .map((d) => Number(d.data().amount || 0))
-        .reduce((a, b) => a + b, 0);
+          const qExpense = query(
+            expenseRef,
+            where("userId", "==", user.uid),
+            where("paymentMethod", "==", "CASH"),
+            where("date", "<", selectedDate)
+          );
 
-      const yesterdayExpense = expenseSnap.docs
-        .map((d) => Number(d.data().amount || 0))
-        .reduce((a, b) => a + b, 0);
+          const incomeSnap = await getDocs(qIncome);
+          const expenseSnap = await getDocs(qExpense);
 
-      const closing = yesterdayIncome - yesterdayExpense;
+          const totalIncomeBefore = incomeSnap.docs
+            .map((d) => Number(d.data().amount || 0))
+            .reduce((a, b) => a + b, 0);
 
-      setOpeningBalance(closing);
-      setLoading(false); // STOP SPINNER
-    };
+          const totalExpenseBefore = expenseSnap.docs
+            .map((d) => Number(d.data().amount || 0))
+            .reduce((a, b) => a + b, 0);
 
-    calculateOpeningBalance();
-  }, [selectedDate]);
+          setOpeningBalance(
+            initialOpening + totalIncomeBefore - totalExpenseBefore
+          );
+        };
+
+        calculateOpeningBalance();
+      }, [selectedDate, openingDate, initialOpening]);
+
+
    
   // CALCULATE CLOSING BALANCE
     useEffect(() => {
@@ -202,7 +287,44 @@ export default function PettyCashPage() {
         </div>
   </div>
 
-    
+      {/* OPENING BALANCE SETUP */}
+    {!openingExists && (
+  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded mb-6">
+    <h3 className="font-semibold mb-2">
+      Set Petty Cash Opening Balance
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <input
+        type="text"
+        inputMode="decimal"
+        placeholder="Opening Amount"
+        className="border p-2 rounded"
+        value={openingInput}
+        onChange={(e) => setOpeningInput(e.target.value)}
+      />
+
+      <input
+        type="date"
+        className="border p-2 rounded"
+        value={openingInputDate}
+        onChange={(e) => setOpeningInputDate(e.target.value)}
+      />
+
+      <button
+        onClick={saveOpeningBalance}
+        className="bg-black text-white rounded px-4"
+      >
+        Save Opening
+      </button>
+    </div>
+
+    <p className="text-xs text-gray-600 mt-2">
+      This can only be set once.
+    </p>
+  </div>
+)}
+
 
       {/* Transactions Table (Empty For Now) */}
       <div className="bg-white border rounded shadow-sm p-4">

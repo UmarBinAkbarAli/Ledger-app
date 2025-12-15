@@ -406,6 +406,45 @@ export default function CustomerLedgerPage(): JSX.Element {
 
       {/* LEDGER TABLE */}
       <div id="pdf-area" className="bg-white border border-gray-300">
+
+ {/* PRINT HEADER */}
+<div className="ledger-print-header hidden print:block mb-6">
+  <div className="flex justify-between items-start border-b pb-3">
+    {/* LEFT: Issuer */}
+    <div>
+      <h2 className="text-lg font-bold uppercase">
+        Boxilla Packages
+      </h2>
+      <div className="text-sm">
+        Plot # 470, Bhangoria Goth, Federal B. Industrial Area, Karachi
+      </div>
+      <div className="text-sm">
+        Phone: 0312-8246221
+      </div>
+    </div>
+
+    {/* RIGHT: Customer */}
+    <div className="text-right text-sm">
+      <div className="font-bold uppercase mb-1">
+        Customer Statement
+      </div>
+
+      <div className="font-bold text-base">
+        {customer?.company || customer?.name}
+      </div>
+
+      {customer?.company && (
+        <div>
+          {customer?.name}
+        </div>
+      )}
+
+      <div className="mt-1">
+        Date: {fromDate} → {toDate}
+      </div>
+    </div>
+  </div>
+</div>
         <div className="p-4">
           <p className="text-sm text-gray-500 mb-4">
             Ledger as of {new Date().toLocaleDateString()}
