@@ -10,6 +10,13 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import {
+  updateDoc,
+  increment,
+  getDoc,
+} from "firebase/firestore";
+import { useRouter } from "next/navigation";
+
 
 type OperationalExpense = {
   id: string;
@@ -24,6 +31,9 @@ type OperationalExpense = {
 export default function OperationalExpensesPage() {
   const [expenses, setExpenses] = useState<OperationalExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"1" | "7" | "30">("7");
+  const router = useRouter();
+
 
   const loadExpenses = async () => {
     const user = auth.currentUser;
@@ -31,12 +41,17 @@ export default function OperationalExpensesPage() {
 
     setLoading(true);
 
-    const snap = await getDocs(
-      query(
-        collection(db, "operationalExpenses"),
-        where("userId", "==", user.uid)
-      )
-    );
+        const start = new Date();
+        start.setDate(start.getDate() - Number(filter));
+
+        const snap = await getDocs(
+        query(
+            collection(db, "operationalExpenses"),
+            where("userId", "==", user.uid),
+            where("date", ">=", start.toISOString().split("T")[0])
+        )
+        );
+
 
     setExpenses(
       snap.docs.map((d) => {
@@ -58,14 +73,54 @@ export default function OperationalExpensesPage() {
 
   useEffect(() => {
     loadExpenses();
-  }, []);
+  }, [filter]);
 
-  const deleteExpense = async (id: string) => {
+  const rollbackPayment = async (expense: OperationalExpense) => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  // Rollback PETTY CASH
+  if (expense.paymentMethod === "CASH") {
+    const snap = await getDocs(
+      query(
+        collection(db, "pettyCash"),
+        where("userId", "==", user.uid)
+      )
+    );
+
+    if (!snap.empty) {
+      await updateDoc(doc(db, "pettyCash", snap.docs[0].id), {
+        balance: increment(expense.amount),
+      });
+    }
+  }
+
+  // Rollback BANK
+  if (expense.paymentMethod === "BANK" && expense.bankName) {
+    const snap = await getDocs(
+      query(
+        collection(db, "bankAccounts"),
+        where("userId", "==", user.uid),
+        where("bankName", "==", expense.bankName)
+      )
+    );
+
+    if (!snap.empty) {
+      await updateDoc(doc(db, "bankAccounts", snap.docs[0].id), {
+        balance: increment(expense.amount),
+      });
+    }
+  }
+};
+
+    const deleteExpense = async (expense: OperationalExpense) => {
     if (!confirm("Delete this operational expense?")) return;
 
-    await deleteDoc(doc(db, "operationalExpenses", id));
+    await rollbackPayment(expense);
+    await deleteDoc(doc(db, "operationalExpenses", expense.id));
     loadExpenses();
-  };
+    };
+
 
   return (
     <div>
@@ -76,7 +131,27 @@ export default function OperationalExpensesPage() {
       ) : expenses.length === 0 ? (
         <p className="text-gray-500">No operational expenses found.</p>
       ) : (
-        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto">
+                            <div className="flex gap-2 mb-4">
+                {[
+                    { label: "Today", value: "1" },
+                    { label: "7 Days", value: "7" },
+                    { label: "30 Days", value: "30" },
+                ].map((b) => (
+                    <button
+                    key={b.value}
+                    onClick={() => setFilter(b.value as any)}
+                    className={`px-3 py-1 rounded text-sm border ${
+                        filter === b.value
+                        ? "bg-black text-white"
+                        : "bg-white"
+                    }`}
+                    >
+                    {b.label}
+                    </button>
+                ))}
+                </div>
+
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-100">
@@ -106,11 +181,20 @@ export default function OperationalExpensesPage() {
                   </td>
                   <td className="p-2 text-center">
                     <button
-                      onClick={() => deleteExpense(e.id)}
-                      className="text-red-600 text-sm"
-                    >
-                      Delete
-                    </button>
+                        onClick={() =>
+                            router.push(`/expense?edit=operational&id=${e.id}`)
+                        }
+                        className="text-blue-600 text-sm mr-3"
+                        >
+                        Edit
+                        </button>
+
+                        <button
+                        onClick={() => deleteExpense(e)}
+                        className="text-red-600 text-sm"
+                        >
+                        Delete
+                        </button>
                   </td>
                 </tr>
               ))}
