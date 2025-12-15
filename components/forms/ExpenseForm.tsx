@@ -9,6 +9,9 @@ import {
   query,
   where,
   serverTimestamp,
+  updateDoc,
+  doc,
+  increment,
 } from "firebase/firestore";
 
 export default function ExpenseForm({
@@ -121,44 +124,87 @@ export default function ExpenseForm({
   return ref.id;
 };
 
-  const savePayment = async (e: any) => {
-    e.preventDefault();
+  const applyOperationalPayment = async (
+  amount: number,
+  paymentMethod: "CASH" | "BANK",
+  bankName?: string
+    ) => {
     const user = auth.currentUser;
     if (!user) return;
 
-    const finalAmount = Number(amount);
-    if (finalAmount <= 0) return;
+    // PETTY CASH
+    if (paymentMethod === "CASH") {
+      const snap = await getDocs(
+        query(
+          collection(db, "pettyCash"),
+          where("userId", "==", user.uid)
+        )
+      );
 
-  let finalSupplierId = supplierId;
+      if (!snap.empty) {
+        await updateDoc(doc(db, "pettyCash", snap.docs[0].id), {
+          balance: increment(-amount),
+        });
+      }
+    }
 
-if (!finalSupplierId && supplierName.trim()) {
-  finalSupplierId = await getOrCreateSupplier(
-    supplierName,
-    user.uid
-  );
-}
+    // BANK
+    if (paymentMethod === "BANK" && bankName) {
+      const snap = await getDocs(
+        query(
+          collection(db, "bankAccounts"),
+          where("userId", "==", user.uid),
+          where("bankName", "==", bankName)
+        )
+      );
 
-// SUPPLIER EXPENSE → expenses collection
-if (expenseType === "SUPPLIER") {
-  if (!finalSupplierId) {
-    alert("Supplier is required");
-    return;
+      if (!snap.empty) {
+        await updateDoc(doc(db, "bankAccounts", snap.docs[0].id), {
+          balance: increment(-amount),
+        });
+      }
+    }
+  };
+
+
+    const savePayment = async (e: any) => {
+      e.preventDefault();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const finalAmount = Number(amount);
+      if (finalAmount <= 0) return;
+
+    let finalSupplierId = supplierId;
+
+  if (!finalSupplierId && supplierName.trim()) {
+    finalSupplierId = await getOrCreateSupplier(
+      supplierName,
+      user.uid
+    );
   }
 
-  await addDoc(collection(db, "expenses"), {
-    supplierId: finalSupplierId,
-    supplierName: supplierName.trim(),
+  // SUPPLIER EXPENSE → expenses collection
+  if (expenseType === "SUPPLIER") {
+    if (!finalSupplierId) {
+      alert("Supplier is required");
+      return;
+    }
 
-    amount: finalAmount,
-    date,
-    paymentMethod,
-    bankName,
-    notes,
+    await addDoc(collection(db, "expenses"), {
+      supplierId: finalSupplierId,
+      supplierName: supplierName.trim(),
 
-    userId: user.uid,
-    createdAt: serverTimestamp(),
-  });
-}
+      amount: finalAmount,
+      date,
+      paymentMethod,
+      bankName,
+      notes,
+
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+    });
+  }
 
 // OPERATIONAL EXPENSE → operationalExpenses collection
 if (expenseType === "OPERATIONAL") {
@@ -167,21 +213,27 @@ if (expenseType === "OPERATIONAL") {
     return;
   }
 
+  // 1️⃣ Deduct from bank / petty cash
+  await applyOperationalPayment(
+    finalAmount,
+    paymentMethod,
+    bankName
+  );
+
+  // 2️⃣ Save operational expense
   await addDoc(collection(db, "operationalExpenses"), {
     categoryId,
     categoryName,
-
     description: notes || "",
-
     amount: finalAmount,
     date,
     paymentMethod,
     bankName,
-
     userId: user.uid,
     createdAt: serverTimestamp(),
   });
 }
+
 
 
       setSupplierId("");
