@@ -2,31 +2,16 @@
 
 import Link from "next/link";
 import Button from "@/components/ui/Button";
-import { useState } from "react"; // Removed useEffect since we don't fetch data anymore
-
-// Removed unused firebase imports to prevent accidental reads
-// import { db, auth } from "@/lib/firebase"; 
-// import { collection, query, where, getDocs } from "firebase/firestore";
-
+import { useState } from "react";
 import IncomeForm from "@/components/forms/IncomeForm";
 import ExpenseForm from "@/components/forms/ExpenseForm";
-
-// Removed Recharts imports since you deleted the chart
-/* import {
-  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-} from "recharts"; 
-*/
 
 export default function DashboardPage() {
   // -------------------------------------------
   // STATE MANAGEMENT
   // -------------------------------------------
-  // We only need states for the Modals now. 
-  // All other stats (income, expense, chartData) are deleted.
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  
-  // This key forces a refresh if needed, though less useful without stats.
   const [refreshKey, setRefreshKey] = useState(0); 
 
   // -------------------------------------------
@@ -36,17 +21,18 @@ export default function DashboardPage() {
     <div className="p-6">
       <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
 
+      {/* QUICK ACTIONS GRID */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         <button
           onClick={() => setShowIncomeModal(true)}
-          className="bg-green-600 text-white py-4 rounded-xl shadow hover:opacity-80"
+          className="bg-green-600 text-white py-4 rounded-xl shadow hover:opacity-80 transition-opacity"
         >
           + Add Income
         </button>
 
         <button
           onClick={() => setShowExpenseModal(true)}
-          className="bg-red-600 text-white py-4 rounded-xl shadow hover:opacity-80"
+          className="bg-red-600 text-white py-4 rounded-xl shadow hover:opacity-80 transition-opacity"
         >
           + Add Expense
         </button>
@@ -56,9 +42,22 @@ export default function DashboardPage() {
         <QuickAction title="Add Purchase" url="/purchase/new" color="bg-blue-600" />
       </div>
 
+      {/* ─────────────────────────────────────────────── */}
+      {/* NEW: CLIENT BRANDING BANNER                     */}
+      {/* ─────────────────────────────────────────────── */}
+      <div className="w-full bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 shadow-xl text-white flex flex-col items-start justify-center min-h-[200px]">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">
+          Boxilla Packages
+        </h1>
+        <div className="h-1 w-20 bg-blue-500 rounded mb-4"></div>
+        <p className="text-lg md:text-xl text-gray-300 font-light">
+          Welcome back, <span className="font-semibold text-white">Babar Akbar</span>
+        </p>
+      </div>
+
       {/* INCOME MODAL */}
       {showIncomeModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 relative">
             <button
               onClick={() => setShowIncomeModal(false)}
@@ -79,7 +78,7 @@ export default function DashboardPage() {
 
       {/* EXPENSE MODAL */}
       {showExpenseModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-lg shadow-lg p-6 relative">
             <button
               onClick={() => setShowExpenseModal(false)}
@@ -114,9 +113,9 @@ function QuickAction({
   color: string;
 }) {
   return (
-    <Link href={url}>
+    <Link href={url} className="w-full">
       <Button
-        className={`${color} w-full text-white py-4 rounded-xl shadow hover:opacity-80 font-regular`}
+        className={`${color} w-full text-white py-4 rounded-xl shadow hover:opacity-80 transition-opacity font-regular`}
       >
         {title}
       </Button>
