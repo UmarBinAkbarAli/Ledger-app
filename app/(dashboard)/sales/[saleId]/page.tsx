@@ -148,11 +148,7 @@ export default function SaleInvoicePage() {
           {/* Totals & Subtotal box */}
           <div className="flex justify-end">
             <div className="w-80">
-              <div className="bg-blue-100 p-4 rounded-t border border-gray-200">
-                <div className="flex justify-between text-sm text-gray-600"><span>SUBTOTAL</span><span>{fmt(subtotal)}</span></div>
-                {/* Place for ADVANCE / TAX if later */}
-              </div>
-              <div className="bg-blue-500 text-white p-4 rounded-b border border-t-0 border-gray-200">
+              <div className="bg-blue-500 text-black p-4 rounded-b border border-t-0 border-gray-200">
                 <div className="flex justify-between font-bold text-lg"><span>TOTAL</span><span>{fmt(total)}</span></div>
               </div>
 
@@ -178,7 +174,7 @@ export default function SaleInvoicePage() {
 
           {/* Footer small text */}
           <div className="mt-8 text-center text-xs text-gray-500">
-            If you have any questions about this invoice, please contact [your-email@example.com]
+            If you have any questions about this invoice, please contact [babarakbar76@gmail.com]
           </div>
         </div>
       </div>
