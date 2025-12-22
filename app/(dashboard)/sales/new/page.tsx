@@ -21,8 +21,8 @@ import { persistentLocalCache } from "firebase/firestore";
 
 type Item = {
   description: string;
-  qty: number;
-  unitPrice: number;
+  qty: string;
+  unitPrice: string;
   amount: number;
 };
 
@@ -54,7 +54,7 @@ const saleCustomerId = searchParams.get("saleCustomerId");
 
   // Items & totals
   const [items, setItems] = useState<Item[]>([
-    { description: "", qty: 1, unitPrice: 0, amount: 0 },
+    { description: "", qty: "1", unitPrice: "0", amount: 0 },
   ]);
   const [subtotal, setSubtotal] = useState(0);
 
@@ -176,21 +176,28 @@ const handleSelectCustomer = (c: any) => {
     setSubtotal(s);
   }, [items]);
 
-  const updateItem = (index: number, field: keyof Item, value: any) => {
-    setItems((prev) => {
-      const copy = [...prev];
-      const item = { ...copy[index] };
-      if (field === "description") item.description = value;
-      if (field === "qty") item.qty = Number(value || 0);
-      if (field === "unitPrice") item.unitPrice = Number(value || 0);
-      item.amount = Number((item.qty * item.unitPrice) || 0);
-      copy[index] = item;
-      return copy;
-    });
-  };
+ const updateItem = (index: number, field: keyof Item, value: string) => {
+  setItems((prev) => {
+    const copy = [...prev];
+    const item = { ...copy[index] };
+
+    if (field === "description") item.description = value;
+    if (field === "qty") item.qty = value;
+    if (field === "unitPrice") item.unitPrice = value;
+
+    const qty = parseFloat(item.qty || "0");
+    const price = parseFloat(item.unitPrice || "0");
+
+    item.amount = qty * price;
+
+    copy[index] = item;
+    return copy;
+  });
+};
+
 
   const addRow = () => {
-    setItems((p) => [...p, { description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+    setItems((p) => [...p, { description: "", qty: "1", unitPrice: "0", amount: 0 }]);
   };
 
   const removeRow = (index: number) => {
@@ -294,7 +301,7 @@ const handleSubmit = async (e: any) => {
     setDate(new Date().toISOString().slice(0, 10));
     setPoNumber("");
     setTerms("CASH");
-    setItems([{ description: "", qty: 1, unitPrice: 0, amount: 0 }]);
+    setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
     setSubtotal(0);
   } catch (error: any) {
     setMessage("Error saving entry: " + (error?.message || error));
@@ -488,7 +495,8 @@ const handleSubmit = async (e: any) => {
                   <td className="p-2 text-right">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
+                      pattern="[0-9]*[.,]?[0-9]*"
                       className="w-20 border border-gray-300 p-1 rounded text-right"
                       value={it.qty}
                       onChange={(e) => updateItem(idx, "qty", e.target.value)}
@@ -497,7 +505,8 @@ const handleSubmit = async (e: any) => {
                   <td className="p-2 text-right">
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
+                      pattern="[0-9]*[.,]?[0-9]*"
                       className="w-28 border border-gray-300 p-1 rounded text-right"
                       value={it.unitPrice}
                       onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}

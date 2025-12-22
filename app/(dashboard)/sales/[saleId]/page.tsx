@@ -5,13 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { generatePDF } from "@/app/utils/pdfGenerator";
-
-/**
- * Pixel-accurate Invoice (Option C)
- * - Uses /boxilla-logo.png (place in public/)
- * - Expects sale fields: customerName, customerCompany, customerAddress, customerPhone, customerChNo,
- *   billNumber, date, poNumber, terms, items[], subtotal, total, paidAmount
- */
+import { ShareButton } from "@/components/ShareButton";
 
 export default function SaleInvoicePage() {
   const { saleId } = useParams();
@@ -49,6 +43,16 @@ export default function SaleInvoicePage() {
     <div className="w-full max-w-[80%] mx-auto p-4">
       {/* Actions */}
       <div className="flex gap-3 justify-end mb-4 print:hidden">
+        {/* ─────────────────────────────────────────────── */}
+      {/* ACTION BAR (Print & Share)                      */}
+      {/* ─────────────────────────────────────────────── */}
+      <div className="p-4 flex justify-end gap-3 print:hidden bg-gray-100 border-b">
+        {/* SHARE BUTTON COMPONENT */}
+        <ShareButton 
+          title={`Invoice ${billNumber}`} 
+          text={`Hello ${customerName || ""},\nHere is your invoice #${billNumber} for ${fmt(total)}.\nDate: ${date}`} 
+        />
+        
         <button
           onClick={() => window.location.href = `/sales/${saleId}/edit`}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
@@ -151,11 +155,6 @@ export default function SaleInvoicePage() {
               <div className="bg-blue-500 text-black p-4 rounded-b border border-t-0 border-gray-200">
                 <div className="flex justify-between font-bold text-lg"><span>TOTAL</span><span>{fmt(total)}</span></div>
               </div>
-
-        {/*    <div className="mt-3 text-sm">
-                <div className="flex justify-between"><span>Paid</span><span>{fmt(paid)}</span></div>
-                <div className="flex justify-between"><span>Remaining</span><span className={remaining > 0 ? "text-red-600" : "text-green-600"}>{fmt(remaining)}</span></div>
-              </div> */}
             </div>
           </div>
 
