@@ -83,6 +83,21 @@ const filteredExpenses = expenses.filter((e) => {
   return e.categoryName === categorySearch;
 });
 
+// Category-wise totals (based on visible rows)
+const categoryTotals = filteredExpenses.reduce<Record<string, number>>(
+  (acc, e) => {
+    acc[e.categoryName] = (acc[e.categoryName] || 0) + e.amount;
+    return acc;
+  },
+  {}
+);
+
+// Grand total (Today / 7 / 30 + category filter)
+const totalExpense = filteredExpenses.reduce(
+  (sum, e) => sum + e.amount,
+  0
+);
+
 const uniqueCategories = Array.from(
   new Set(expenses.map((e) => e.categoryName).filter(Boolean))
 );
@@ -197,6 +212,29 @@ const uniqueCategories = Array.from(
                       </div>
                 </div>
 
+                {Object.keys(categoryTotals).length > 0 && (
+              <div className="mb-4 border rounded bg-gray-50 p-3">
+                <h2 className="font-semibold mb-2 text-sm text-gray-700">
+                  Category-wise totals
+                </h2>
+
+                <div className="space-y-1 text-sm">
+                  {Object.entries(categoryTotals).map(([cat, total]) => (
+                    <div
+                      key={cat}
+                      className="flex justify-between border-b last:border-0 py-1"
+                    >
+                      <span>{cat}</span>
+                      <span className="font-medium">
+                        {total.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-gray-100">
@@ -252,6 +290,18 @@ const uniqueCategories = Array.from(
               ))}
             </tbody>
           </table>
+
+          <div className="mt-4 flex justify-end">
+  <div className="border rounded bg-gray-100 px-4 py-2 text-right">
+    <div className="text-sm text-gray-600">
+      Total Expense
+    </div>
+    <div className="text-xl font-bold">
+      {totalExpense.toLocaleString()}
+    </div>
+  </div>
+</div>
+
         </div>
     </div>
   );
