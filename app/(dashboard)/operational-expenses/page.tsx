@@ -31,9 +31,11 @@ type OperationalExpense = {
 export default function OperationalExpensesPage() {
   const [expenses, setExpenses] = useState<OperationalExpense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"1" | "7" | "30">("7");
+  const [filter, setFilter] = useState<"1" | "7" | "30">("1");
   const router = useRouter();
   const [categorySearch, setCategorySearch] = useState("");
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
 
 
   const loadExpenses = async () => {
@@ -72,13 +74,19 @@ export default function OperationalExpensesPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadExpenses();
-  }, [filter]);
+ useEffect(() => { setCategorySearch(""); setShowCategoryDropdown(false); loadExpenses();
+}, [filter]);
 
-  const filteredExpenses = expenses.filter((e) =>
-  e.categoryName.toLowerCase().includes(categorySearch.toLowerCase())
+
+const filteredExpenses = expenses.filter((e) => {
+  if (!categorySearch) return true;
+  return e.categoryName === categorySearch;
+});
+
+const uniqueCategories = Array.from(
+  new Set(expenses.map((e) => e.categoryName).filter(Boolean))
 );
+
 
   const rollbackPayment = async (expense: OperationalExpense) => {
   const user = auth.currentUser;
@@ -131,11 +139,7 @@ export default function OperationalExpensesPage() {
     <div>
       <h1 className="text-xl font-bold mb-4">Operational Expenses</h1>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : expenses.length === 0 ? (
-        <p className="text-gray-500">No operational expenses found.</p>
-      ) : (
+              {loading && <p>Loading...</p>}
                         <div className="overflow-x-auto">
                             <div className="flex gap-2 mb-4">
                             <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -157,32 +161,40 @@ export default function OperationalExpensesPage() {
                         ))}
 
                         {/* Category Search */}
-                        <input
-                          type="text"
-                          placeholder="Search category..."
-                          value={categorySearch}
-                          onChange={(e) => setCategorySearch(e.target.value)}
-                          className="border px-2 py-1 rounded text-sm ml-auto"
-                        />
-                      </div>
+                        <div className="relative ml-auto">
+                      <input
+                        type="text"
+                        placeholder="Filter by category"
+                        value={categorySearch}
+                        onFocus={() => setShowCategoryDropdown(true)}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="border px-2 py-1 rounded text-sm w-48"
+                      />
 
-                {[
-                    { label: "Today", value: "1" },
-                    { label: "7 Days", value: "7" },
-                    { label: "30 Days", value: "30" },
-                ].map((b) => (
-                    <button
-                    key={b.value}
-                    onClick={() => setFilter(b.value as any)}
-                    className={`px-3 py-1 rounded text-sm border ${
-                        filter === b.value
-                        ? "bg-black text-white"
-                        : "bg-white"
-                    }`}
-                    >
-                    {b.label}
-                    </button>
-                ))}
+                      {showCategoryDropdown && uniqueCategories.length > 0 && (
+                        <div className="absolute right-0 z-20 bg-white border rounded shadow mt-1 w-full max-h-40 overflow-y-auto">
+                          {uniqueCategories
+                            .filter((c) =>
+                              c.toLowerCase().includes(categorySearch.toLowerCase())
+                            )
+                            .map((c) => (
+                              <button
+                                key={c}
+                                type="button"
+                                onClick={() => {
+                                  setCategorySearch(c);
+                                  setShowCategoryDropdown(false);
+                                }}
+                                className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100"
+                              >
+                                {c}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                      </div>
                 </div>
 
           <table className="w-full border-collapse">
@@ -241,7 +253,6 @@ export default function OperationalExpensesPage() {
             </tbody>
           </table>
         </div>
-      )}
     </div>
   );
 }
