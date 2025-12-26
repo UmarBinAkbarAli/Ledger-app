@@ -5,7 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { generatePDF } from "@/app/utils/pdfGenerator";
-import { ShareButton } from "@/components/ShareButton";
+import ShareButton from "@/components/ShareButton";
 
 export default function SaleInvoicePage() {
   const { saleId } = useParams();
@@ -41,16 +41,13 @@ export default function SaleInvoicePage() {
 
   return (
     <div className="w-full max-w-[80%] mx-auto p-4">
-      {/* Actions */}
-      <div className="flex gap-3 justify-end mb-4 print:hidden">
-        {/* ─────────────────────────────────────────────── */}
       {/* ACTION BAR (Print & Share)                      */}
-      {/* ─────────────────────────────────────────────── */}
       <div className="p-4 flex justify-end gap-3 print:hidden bg-gray-100 border-b">
         {/* SHARE BUTTON COMPONENT */}
-        <ShareButton 
-          title={`Invoice ${billNumber}`} 
-          text={`Hello ${customerName || ""},\nHere is your invoice #${billNumber} for ${fmt(total)}.\nDate: ${date}`} 
+        <ShareButton
+          title={`Invoice ${sale.billNumber || saleId}`}
+          text={`Hello ${sale.customerName || ""},\nHere is your invoice #${sale.billNumber || saleId} for ${fmt(total)}.\nDate: ${sale.date}`}
+          url={`${typeof window !== "undefined" ? window.location.origin : ""}/sales/${saleId}`}
         />
         
         <button
@@ -90,7 +87,7 @@ export default function SaleInvoicePage() {
             </div>
 
             <div className="w-48">
-              <div className="bg-blue-900 text-white text-sm px-3 py-2 font-semibold text-right">INVOICE</div>
+              <div className="bg-blue-900 text-Black text-sm px-3 py-2 font-semibold text-right">INVOICE</div>
 
               <div className="border border-t-0 border-gray-200 p-3 text-sm">
                 <div className="flex justify-between pb-1"><span className="text-gray-600">INVOICE #</span><strong>{sale.billNumber}</strong></div>
@@ -102,7 +99,7 @@ export default function SaleInvoicePage() {
           {/* Top info bar: Bill To / PO / Terms */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
-              <div className="bg-blue-800 text-white px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">BILL TO</div>
+              <div className="bg-blue-800 text-black px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">BILL TO</div>
               {sale.customerCompany && <div className="text-sm font-semibold">{sale.customerCompany}</div>}
               <div className="text-sm">{sale.customerName}</div>
               {sale.customerAddress && <div className="text-sm">{sale.customerAddress}</div>}
@@ -111,12 +108,12 @@ export default function SaleInvoicePage() {
             </div>
 
             <div>
-              <div className="bg-blue-800 text-white px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">PO NO</div>
+              <div className="bg-blue-800 text-black px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">PO NO</div>
               <div className="text-sm">{sale.poNumber || "-"}</div>
             </div>
 
             <div>
-              <div className="bg-blue-800 text-white px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">TERMS</div>
+              <div className="bg-blue-800 text-black px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">TERMS</div>
               <div className="text-sm">{sale.terms || "CASH"}</div>
             </div>
           </div>
@@ -177,6 +174,6 @@ export default function SaleInvoicePage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 }
