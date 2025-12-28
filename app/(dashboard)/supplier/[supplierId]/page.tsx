@@ -40,6 +40,7 @@ type ExpenseDoc = {
   supplierName?: string;
   amount?: number;
   date?: any;
+  details?: string;
   userId?: string;
   createdAt?: any;
 };
@@ -201,7 +202,9 @@ export default function SupplierLedgerPage() {
       built.push({
         id: `pay-${pay.id}`,
         date: pay.date || pay.createdAt || "",
-        particular: `Payment - ${pay.supplierName || ""}`,
+        particular: "Payment",
+        notes:
+        pay.details || (pay as any).note || (pay as any).notes || (pay as any).description || (pay as any).remarks ||"",
         folio: "",
         qty: "",
         rate: "",
@@ -308,48 +311,97 @@ export default function SupplierLedgerPage() {
         )
       : 0;
 
-    return (
-      <Fragment key={r.id}>
-        <tr className={`border-t ${r.type === "payment" ? "bg-yellow-50" : ""}`}>
-          <td className="p-3">{r.date ? String(r.date).slice(0, 10) : ""}</td>
-          <td className="p-3">{r.particular}</td>
+   return (
+  <Fragment key={r.id}>
+    <tr className={`border-t ${r.type === "payment" ? "bg-yellow-50" : ""}`}>
+      <td className="p-3">
+        {r.date ? String(r.date).slice(0, 10) : ""}
+      </td>
+
+      <td className="p-3">
+        {r.particular}
+      </td>
+
+      {r.type === "payment" ? (
+        <>
+          {/* PAYMENT ROW NOTES (MERGED CELLS)
+             --------------------------------
+             Payment rows do not use:
+             Folio, CH No, Size, Qty, Rate
+             These cells are merged to display expense notes
+          */}
+          <td colSpan={5} className="p-3 italic text-gray-600">
+            {r.notes || "—"}
+          </td>
+        </>
+      ) : (
+        <>
           <td className="p-3">{r.folio}</td>
           <td className="p-3">{r.chNo || "-"}</td>
           <td className="p-3 text-right">{r.size || "-"}</td>
           <td className="p-3 text-right">{r.qty || "-"}</td>
           <td className="p-3 text-right">{r.rate || "-"}</td>
+
+          {/* PRICE CELL HIDDEN (INTENTIONAL)
+              Used for row-level display only.
+              Balance calculations rely on `purchase` / `payment`, NOT `price`. */}
+          {/*
           <td className="p-3 text-right">
             {Number(r.price || 0).toLocaleString()}
           </td>
-          <td className="p-3 text-right">
-            {Number(r.purchase || 0).toLocaleString()}
-          </td>
-          <td className="p-3 text-right">
-            {Number(r.payment || 0).toLocaleString()}
-          </td>
-          <td className="p-3 text-right font-semibold">
-            {Number(r.balance || 0).toLocaleString()}
-          </td>
-        </tr>
+          */}
+        </>
+      )}
 
-        {isLastPurchaseRow && (
-          <tr className="bg-gray-200 font-semibold border-b">
-            <td colSpan={7}></td>
-            <td className="p-3 text-right">Bill Total:</td>
-            <td className="p-3 text-right">
-              {purchaseTotal.toLocaleString()}
-            </td>
-            <td colSpan={2}></td>
-          </tr>
-        )}
-      </Fragment>
-    );
+      <td className="p-3 text-right">
+        {Number(r.purchase || 0).toLocaleString()}
+      </td>
+
+      <td className="p-3 text-right">
+        {Number(r.payment || 0).toLocaleString()}
+      </td>
+
+      <td className="p-3 text-right font-semibold">
+        {Number(r.balance || 0).toLocaleString()}
+      </td>
+    </tr>
+
+    {isLastPurchaseRow && (
+      <tr className="bg-gray-200 font-semibold border-b">
+        {/* Price column hidden → colSpan adjusted */}
+        <td colSpan={6}></td>
+        <td className="p-3 text-right">Bill Total:</td>
+        <td className="p-3 text-right">
+          {purchaseTotal.toLocaleString()}
+        </td>
+        <td colSpan={2}></td>
+      </tr>
+    )}
+  </Fragment>
+);
   });
 }, [filteredRows]);
 
   if (loading) return <p className="p-6">Loading ledger...</p>;
   if (error) return <p className="p-6 text-red-600">{error}</p>;
   if (!supplier) return <p className="p-6">Supplier not found</p>;
+
+  /* ---------------------------------------------
+   PDF DOWNLOAD (MATCH CUSTOMER LEDGER)
+----------------------------------------------*/
+const handlePDF = () => {
+  const fileName = `ledger-${(
+    supplier?.company ||
+    supplier?.supplierCompany ||
+    supplier?.name ||
+    "supplier"
+  )
+    .toString()
+    .replace(/\s+/g, "_")}.pdf`;
+
+  generatePDF("pdf-area", fileName);
+};
+
 
   return (
     <div className="p-6">
@@ -393,19 +445,13 @@ export default function SupplierLedgerPage() {
             Print Ledger
           </button>
 
-          <button
-            onClick={() => {
-              try {
-                // generatePDF("ledger-area", `supplier-ledger-${supplier.id}.pdf`);
-                window.print();
-              } catch (e) {
-                window.print();
-              }
-            }}
-            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Download PDF
-          </button>
+          {/* Download PDF */}
+            <button
+              onClick={handlePDF}
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Download PDF
+            </button>
         </div>
       </div>
 
@@ -482,7 +528,13 @@ export default function SupplierLedgerPage() {
                   <th className="p-2 text-right">Size</th>
                   <th className="p-2 text-right">Qty</th>
                   <th className="p-2 text-right">Rate</th>
-                  <th className="p-2 text-right">Price</th>
+                   {/*  PRICE COLUMN HIDDEN (INTENTIONAL)
+                      --------------------------------
+                      Price represents per-item / row-level value.
+                      Currently identical to "Purchase", so hidden for UI clarity.
+                      Logic is preserved for future use (tax, freight, discount, adjustments).
+                    */}
+                    {/* <th className="p-2 text-right">Price</th> */}
                   <th className="p-2 text-right">Purchase</th>
                   <th className="p-2 text-right">Payment</th>
                   <th className="p-2 text-right">Balance</th>
@@ -501,6 +553,13 @@ export default function SupplierLedgerPage() {
               </tbody> 
         </table>
       </div>
+
+      {/*}      // NOTE:
+      // `price` represents row-level/item value for UI breakdown.
+      // It is intentionally NOT used in balance calculation.
+      // Currently hidden from UI because it equals `purchase`.
+      // Preserved for future needs (tax, freight, discounts, adjustments).
+        */}
 
       {/* FOOTER: Opening / Closing Balance (aligned right like customer ledger) */}
                 <div className="mt-6 flex justify-end">
