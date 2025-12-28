@@ -9,6 +9,10 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { doc, deleteDoc } from "firebase/firestore";
 
@@ -24,60 +28,111 @@ type Sale = {
   createdAt: any;
 };
 
+
+const ITEMS_PER_PAGE = 20; // ✅ NEW: Define page size
+
 export default function SalesListPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false); // ✅ NEW: Loading state for "Load More" button
   const [error, setError] = useState("");
+
+  // ✅ NEW: Track the last document to know where to start fetching the next page
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true); // ✅ NEW: Check if database has more data
 
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  /* ---------------------- LOAD SALES ------------------------ */
-  useEffect(() => {
-    const loadSales = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          setError("Not logged in");
-          setLoading(false);
-          return;
-        }
-
-        const q1 = query(
-          collection(db, "sales"),
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc")
-        );
-
-        const snap = await getDocs(q1);
-
-        const list: Sale[] = snap.docs.map((d) => {
-          const dd: any = d.data();
-
-          return {
-            id: d.id,
-            customerId: dd.customerId || "",
-            customerName: dd.customerName || "",
-            customerCompany: dd.customerCompany || "",
-            billNumber: dd.billNumber || "",
-            date: dd.date || "",
-            total: Number(dd.total || 0),
-            paidAmount: Number(dd.paidAmount || 0),
-            createdAt: dd.createdAt || null,
-          };
-        });
-
-        setSales(list);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load sales");
-      } finally {
+/* ---------------------- LOAD SALES FUNCTION ------------------------ */
+  const fetchSales = async (isNextPage = false) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setError("Not logged in");
         setLoading(false);
+        return;
       }
-    };
 
-    loadSales();
+      if (isNextPage) setLoadingMore(true);
+      else setLoading(true);
+
+      const salesRef = collection(db, "sales");
+
+      // Construct Query with Pagination
+      let q;
+      if (isNextPage && lastDoc) {
+        // Fetch NEXT page (start after the last document we saw)
+        q = query(
+          salesRef,
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(ITEMS_PER_PAGE)
+        );
+      } else {
+        // Fetch FIRST page
+        q = query(
+          salesRef,
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(ITEMS_PER_PAGE)
+        );
+      }
+
+      const snap = await getDocs(q);
+
+      // Check if we have more data
+      if (snap.empty) {
+        setHasMore(false);
+        if (isNextPage) setLoadingMore(false);
+        else setLoading(false);
+        return;
+      }
+
+      // Update lastDoc for next fetch
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      
+      // If we fetched fewer than limit, it means we reached the end
+      if (snap.docs.length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      const list: Sale[] = snap.docs.map((d) => {
+        const dd: any = d.data();
+        return {
+          id: d.id,
+          customerId: dd.customerId || "",
+          customerName: dd.customerName || "",
+          customerCompany: dd.customerCompany || "",
+          billNumber: dd.billNumber || "",
+          date: dd.date || "",
+          total: Number(dd.total || 0),
+          paidAmount: Number(dd.paidAmount || 0),
+          createdAt: dd.createdAt || null,
+        };
+      });
+
+      // Append new data to existing list instead of overwriting
+      if (isNextPage) {
+        setSales((prev) => [...prev, ...list]);
+      } else {
+        setSales(list);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load sales");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  /* ---------------------- INITIAL LOAD ------------------------ */
+  useEffect(() => {
+    fetchSales(false);
   }, []);
 
   /* ---------------------- DELETE SALE ------------------------ */
@@ -103,14 +158,6 @@ export default function SalesListPage() {
   if (error) return <p className="p-6 text-red-600">{error}</p>;
 
 
-    /* ---------------------- DAILY TOTAL (TODAY) ------------------------ */
-  const today = new Date().toISOString().split("T")[0];
-
-  const todaysTotal = sales
-    .filter((s) => s.date === today)
-    .reduce((sum, s) => sum + s.total, 0);
-
-
   /* ---------------------- UI ------------------------ */
   return (
     <div className="p-6">
@@ -120,13 +167,6 @@ export default function SalesListPage() {
         <Link href="/sales/new" className="bg-blue-600 text-white px-4 py-2 rounded">
           + Add Sale
         </Link>
-      </div>
-   
-      {/* ---------------- TODAY'S TOTAL ---------------- */}
-      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
-        <p className="text-lg font-semibold text-blue-700">
-          Today’s Total Sale: {todaysTotal.toLocaleString()}
-        </p>
       </div>
 
       {/* Filters */}
@@ -232,6 +272,18 @@ export default function SalesListPage() {
               })}
           </tbody>
         </table>
+        {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => fetchSales(true)}
+            disabled={loadingMore}
+            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load More Sales"}
+          </button>
+        </div>
+      )}
       </div>
     </div>
   );

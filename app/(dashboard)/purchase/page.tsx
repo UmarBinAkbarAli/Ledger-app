@@ -9,6 +9,10 @@ import {
   query,
   where,
   orderBy,
+  limit,                  // <--- Add this
+  startAfter,             // <--- Add this
+  QueryDocumentSnapshot,  // <--- Add this
+  DocumentData,           // <--- Add this
   doc,
   deleteDoc,
 } from "firebase/firestore";
@@ -34,51 +38,98 @@ export default function PurchaseListPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  /* ---------------------- LOAD PURCHASES ------------------------ */
-  useEffect(() => {
-    const loadPurchases = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          setError("Not logged in");
-          setLoading(false);
-          return;
-        }
+  // --- Pagination State ---
+  const ITEMS_PER_PAGE = 20;
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-        const q1 = query(
-          collection(db, "purchases"),
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc")
-        );
-
-        const snap = await getDocs(q1);
-
-        const list: Purchase[] = snap.docs.map((d) => {
-          const dd: any = d.data();
-
-          return {
-            id: d.id,
-            supplierId: dd.supplierId || "",
-            supplierName: dd.supplierName || "",
-            supplierCompany: dd.supplierCompany || "", // ✅ ADD
-            billNumber: dd.billNumber || "",
-            date: dd.date || "",
-            total: Number(dd.total || dd.subtotal || 0),
-            paidAmount: Number(dd.paidAmount || 0),
-            createdAt: dd.createdAt || null,
-          };
-        });
-
-        setPurchases(list);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load purchases");
-      } finally {
+/* ---------------------- LOAD PURCHASES (PAGINATED) ------------------------ */
+  const fetchPurchases = async (isNextPage = false) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setError("Not logged in");
         setLoading(false);
+        return;
       }
-    };
 
-    loadPurchases();
+      if (isNextPage) setLoadingMore(true);
+      else setLoading(true);
+
+      const purchasesRef = collection(db, "purchases");
+      let q;
+
+      // Logic: If loading next page, start after the last document
+      if (isNextPage && lastDoc) {
+        q = query(
+          purchasesRef,
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(ITEMS_PER_PAGE)
+        );
+      } else {
+        // Otherwise, load the first page
+        q = query(
+          purchasesRef,
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(ITEMS_PER_PAGE)
+        );
+      }
+
+      const snap = await getDocs(q);
+
+      // Handle "No more data"
+      if (snap.empty) {
+        setHasMore(false);
+        if (isNextPage) setLoadingMore(false);
+        else setLoading(false);
+        return;
+      }
+
+      // Save the last document for the next cursor
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      
+      if (snap.docs.length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      const list: Purchase[] = snap.docs.map((d) => {
+        const dd: any = d.data();
+        return {
+          id: d.id,
+          supplierId: dd.supplierId || "",
+          supplierName: dd.supplierName || "",
+          supplierCompany: dd.supplierCompany || "",
+          billNumber: dd.billNumber || "",
+          date: dd.date || "",
+          total: Number(dd.total || 0),
+          paidAmount: Number(dd.paidAmount || 0),
+          createdAt: dd.createdAt || null,
+        };
+      });
+
+      // If next page, add to list. If first page, replace list.
+      if (isNextPage) {
+        setPurchases((prev) => [...prev, ...list]);
+      } else {
+        setPurchases(list);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load purchases");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Initial Load
+  useEffect(() => {
+    fetchPurchases(false);
   }, []);
 
   /* ---------------------- DELETE PURCHASE ------------------------ */
@@ -116,13 +167,6 @@ export default function PurchaseListPage() {
         <Link href="/purchase/new" className="bg-blue-600 text-white px-4 py-2 rounded">
           + New Purchase
         </Link>
-      </div>
-
-            {/* TODAY'S TOTAL PURCHASE */}
-      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-        <p className="text-lg font-semibold text-yellow-700">
-          Today’s Total Purchase: {todaysTotalPurchase.toLocaleString()}
-        </p>
       </div>
 
       {/* Filters */}
@@ -230,6 +274,18 @@ export default function PurchaseListPage() {
           </tbody>
         </table>
       </div>
+      {/* Load More Button - Only shows if there is more data */}
+      {hasMore && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => fetchPurchases(true)}
+            disabled={loadingMore}
+            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load More Purchases"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,11 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot,
+  DocumentData,  
 } from "firebase/firestore";
 import { doc, runTransaction } from "firebase/firestore";
 type ExpenseItem = {
@@ -27,50 +32,98 @@ export default function ExpenseListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadExpenses = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          setError("Not logged in");
-          setLoading(false);
-          return;
-        }
+  // --- Pagination State ---
+  const ITEMS_PER_PAGE = 20;
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-        // Fetch all expenses for this user
-        const q = query(
-          collection(db, "expenses"),
-          where("userId", "==", user.uid)
-        );
-
-        const snap = await getDocs(q);
-        const data: ExpenseItem[] = snap.docs.map((d) => {
-          const dd: any = d.data();
-          return {
-            id: d.id,
-            supplierId: dd.supplierId || "",  // ⭐ REQUIRED ⭐
-            purchaseId: dd.purchaseId || "",  // ⭐ REQUIRED ⭐
-            supplierName: dd.supplierName || "",
-            billNumber: dd.billNumber || "",
-            amount: Number(dd.amount || 0),
-            date: dd.date || "",
-          };
-        });
-
-        // sort by newest date
-        data.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-
-        setExpenseList(data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load expense data.");
-      } finally {
+// Defined OUTSIDE useEffect so the button can use it
+  const fetchExpenses = async (isNextPage = false) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setError("Not logged in");
         setLoading(false);
+        return;
       }
-    };
 
-    loadExpenses();
+      // Set correct loading state
+      if (isNextPage) setLoadingMore(true);
+      else setLoading(true);
+
+      const expensesRef = collection(db, "expenses");
+      let q;
+
+      // Logic: If 'Load More' clicked, start after lastDoc. Else start from scratch.
+      if (isNextPage && lastDoc) {
+        q = query(
+          expensesRef,
+          where("userId", "==", user.uid),
+          orderBy("date", "desc"),
+          startAfter(lastDoc),
+          limit(ITEMS_PER_PAGE)
+        );
+      } else {
+        q = query(
+          expensesRef,
+          where("userId", "==", user.uid),
+          orderBy("date", "desc"),
+          limit(ITEMS_PER_PAGE)
+        );
+      }
+
+      const snap = await getDocs(q);
+
+      // Handle Empty / End of List
+      if (snap.empty) {
+        setHasMore(false);
+        if (isNextPage) setLoadingMore(false);
+        else setLoading(false);
+        return;
+      }
+
+      // Update Cursor for next time
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      
+      if (snap.docs.length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      // Map Data (Your exact mapping)
+      const list: ExpenseItem[] = snap.docs.map((d) => {
+        const dd: any = d.data();
+        return {
+          id: d.id,
+          supplierId: dd.supplierId || "",
+          supplierName: dd.supplierName || "",
+          billNumber: dd.billNumber || "",
+          amount: Number(dd.amount || 0),
+          date: dd.date || "",
+        };
+      });
+
+      // Update State
+      if (isNextPage) {
+        setExpenseList((prev) => [...prev, ...list]);
+      } else {
+        setExpenseList(list);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load expenses");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Now the useEffect is simple: just call the function above
+  useEffect(() => {
+    fetchExpenses(false);
   }, []);
+  
     const handleDelete = async (expense: any) => {
   if (!confirm("Are you sure you want to delete this expense?")) return;
 
@@ -153,13 +206,6 @@ export default function ExpenseListPage() {
 
 </div>
 
-            {/* TODAY'S TOTAL EXPENSE */}
-      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
-        <p className="text-lg font-semibold text-red-700">
-          Today’s Total Expense: {todaysTotalExpense.toLocaleString()}
-        </p>
-      </div>
-
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Expenses (Payments to Suppliers)</h1>
 
@@ -239,6 +285,18 @@ export default function ExpenseListPage() {
             </tbody>
 
           </table>
+        </div>
+      )}
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => fetchExpenses(true)}
+            disabled={loadingMore}
+            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load More Expenses"}
+          </button>
         </div>
       )}
     </div>

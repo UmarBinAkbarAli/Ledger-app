@@ -8,6 +8,11 @@ import {
   getDocs,
   query,
   where,
+  orderBy, 
+  limit,
+  startAfter,
+  QueryDocumentSnapshot, 
+  DocumentData,
   doc,
   runTransaction,
 } from "firebase/firestore";
@@ -28,59 +33,98 @@ export default function IncomeListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /* ---------------------------------------------
-     Load Income Records
+  // --- Pagination State ---
+  const ITEMS_PER_PAGE = 20;
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+/* ---------------------------------------------
+     Load Income Records (PAGINATED)
   ----------------------------------------------*/
-  useEffect(() => {
-    const loadIncome = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) {
-          setError("Not logged in");
-          setLoading(false);
-          return;
-        }
-
-        const q = query(
-          collection(db, "income"),
-          where("userId", "==", user.uid)
-        );
-
-        const snap = await getDocs(q);
-
-        const list: IncomeItem[] = snap.docs.map((d) => {
-          const dd: any = d.data();
-
-          // Normalize date
-          let finalDate = "";
-          if (typeof dd.date === "string") finalDate = dd.date;
-          else if (dd.date?.toDate)
-            finalDate = dd.date.toDate().toISOString().slice(0, 10);
-          else if (dd.createdAt?.toDate)
-            finalDate = dd.createdAt.toDate().toISOString().slice(0, 10);
-
-          return {
-            id: d.id,
-            customerId: dd.customerId || "",
-            customerName: dd.customerName || "",
-            amount: Number(dd.amount || 0),
-            date: finalDate,
-          };
-        });
-
-        // Latest first
-        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        setIncomeList(list);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load income data.");
-      } finally {
+  const fetchIncome = async (isNextPage = false) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        setError("Not logged in");
         setLoading(false);
+        return;
       }
-    };
 
-    loadIncome();
+      if (isNextPage) setLoadingMore(true);
+      else setLoading(true);
+
+      const incomeRef = collection(db, "income");
+      let q;
+
+      if (isNextPage && lastDoc) {
+        q = query(
+          incomeRef,
+          where("userId", "==", user.uid),
+          orderBy("date", "desc"), // Use 'date' field for sorting
+          startAfter(lastDoc),
+          limit(ITEMS_PER_PAGE)
+        );
+      } else {
+        q = query(
+          incomeRef,
+          where("userId", "==", user.uid),
+          orderBy("date", "desc"),
+          limit(ITEMS_PER_PAGE)
+        );
+      }
+
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        setHasMore(false);
+        if (isNextPage) setLoadingMore(false);
+        else setLoading(false);
+        return;
+      }
+
+      setLastDoc(snap.docs[snap.docs.length - 1]);
+      
+      if (snap.docs.length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      const list: IncomeItem[] = snap.docs.map((d) => {
+        const dd: any = d.data();
+        // Normalize date
+        let finalDate = "";
+        if (typeof dd.date === "string") finalDate = dd.date;
+        else if (dd.date?.toDate)
+          finalDate = dd.date.toDate().toISOString().slice(0, 10);
+        else if (dd.createdAt?.toDate)
+          finalDate = dd.createdAt.toDate().toISOString().slice(0, 10);
+
+        return {
+          id: d.id,
+          customerId: dd.customerId || "",
+          customerName: dd.customerName || "",
+          amount: Number(dd.amount || 0),
+          date: finalDate,
+        };
+      });
+
+      if (isNextPage) {
+        setIncomeList((prev) => [...prev, ...list]);
+      } else {
+        setIncomeList(list);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load income data.");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIncome(false);
   }, []);
 
   /* ---------------------------------------------
@@ -149,14 +193,7 @@ export default function IncomeListPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      </div>
-
-      {/* TODAY'S TOTAL INCOME */}
-      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
-        <p className="text-lg font-semibold text-green-700">
-          Today’s Total Income: {todaysTotalIncome.toLocaleString()}
-        </p>
-      </div>
+      </div>  
 
 
       {/* Header */}
@@ -239,6 +276,18 @@ export default function IncomeListPage() {
                 ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {/* Load More Button */}
+      {hasMore && (
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => fetchIncome(true)}
+            disabled={loadingMore}
+            className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
+          >
+            {loadingMore ? "Loading..." : "Load More Income"}
+          </button>
         </div>
       )}
     </div>
