@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -108,8 +108,7 @@ export default function CustomerLedgerPage(): JSX.Element {
         ------------------------------*/
         const salesQ = query(
           collection(db, "sales"),
-          where("userId", "==", user.uid),
-          orderBy("date", "asc")
+          where("userId", "==", user.uid)
         );
         const sSnap = await getDocs(salesQ);
 
@@ -134,8 +133,7 @@ export default function CustomerLedgerPage(): JSX.Element {
         ------------------------------*/
         const incQ = query(
           collection(db, "income"),
-          where("userId", "==", user.uid),
-          orderBy("date", "asc")
+          where("userId", "==", user.uid)
         );
         const incSnap = await getDocs(incQ);
 
@@ -499,10 +497,9 @@ export default function CustomerLedgerPage(): JSX.Element {
                           : 0;
 
                       return (
-                        <>
+                        <React.Fragment key={r.id}>
                           {/* NORMAL ROW */}
                           <tr
-                            key={r.id}
                             className={`border-t ${
                               r.type === "payment" ? "bg-yellow-100" : ""
                             }`}
@@ -538,7 +535,7 @@ export default function CustomerLedgerPage(): JSX.Element {
                               <td colSpan={2}></td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     });
                   })()}

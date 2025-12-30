@@ -103,51 +103,14 @@ const uniqueCategories = Array.from(
 );
 
 
-  const rollbackPayment = async (expense: OperationalExpense) => {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  // Rollback PETTY CASH
-  if (expense.paymentMethod === "CASH") {
-    const snap = await getDocs(
-      query(
-        collection(db, "pettyCash"),
-        where("userId", "==", user.uid)
-      )
-    );
-
-    if (!snap.empty) {
-      await updateDoc(doc(db, "pettyCash", snap.docs[0].id), {
-        balance: increment(expense.amount),
-      });
-    }
-  }
-
-  // Rollback BANK
-  if (expense.paymentMethod === "BANK" && expense.bankName) {
-    const snap = await getDocs(
-      query(
-        collection(db, "bankAccounts"),
-        where("userId", "==", user.uid),
-        where("bankName", "==", expense.bankName)
-      )
-    );
-
-    if (!snap.empty) {
-      await updateDoc(doc(db, "bankAccounts", snap.docs[0].id), {
-        balance: increment(expense.amount),
-      });
-    }
-  }
-};
-
-    const deleteExpense = async (expense: OperationalExpense) => {
+  // NOTE: No need to rollback petty cash or bank balances
+  // because they are calculated from transactions automatically
+  const deleteExpense = async (expense: OperationalExpense) => {
     if (!confirm("Delete this operational expense?")) return;
 
-    await rollbackPayment(expense);
     await deleteDoc(doc(db, "operationalExpenses", expense.id));
     loadExpenses();
-    };
+  };
 
 
   return (

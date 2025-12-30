@@ -39,7 +39,12 @@ service cloud.firestore {
       match /bankAccounts/{accountId} {
         allow read, write: if isOwner(userId);
       }
-      
+
+      // Petty cash subcollection
+      match /pettyCash/{pettyId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // Summary subcollection (for dashboard aggregations)
       match /summary/{summaryId} {
         allow read, write: if isOwner(userId);
@@ -50,90 +55,102 @@ service cloud.firestore {
     // CUSTOMERS COLLECTION
     // ============================================
     match /customers/{customerId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // SUPPLIERS COLLECTION
     // ============================================
     match /suppliers/{supplierId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // SALES COLLECTION
     // ============================================
     match /sales/{saleId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // PURCHASES COLLECTION
     // ============================================
     match /purchases/{purchaseId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // INCOME COLLECTION
     // ============================================
     match /income/{incomeId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // EXPENSES COLLECTION
     // ============================================
     match /expenses/{expenseId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // OPERATIONAL EXPENSES COLLECTION
     // ============================================
     match /operationalExpenses/{expenseId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
     // TRANSFERS COLLECTION
     // ============================================
     match /transfers/{transferId} {
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                      request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
     
     // ============================================
     // EXPENSE CATEGORIES COLLECTION
     // ============================================
     match /expenseCategories/{categoryId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow create: if isAuthenticated() &&
+                     request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
     }
-    
+
+    // ============================================
+    // PETTY CASH OPENING COLLECTION
+    // ============================================
+    match /pettyCashOpening/{openingId} {
+      allow create: if isAuthenticated() &&
+                     request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() &&
+                          resource.data.userId == request.auth.uid;
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

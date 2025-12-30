@@ -124,47 +124,9 @@ export default function ExpenseForm({
   return ref.id;
 };
 
-  const applyOperationalPayment = async (
-  amount: number,
-  paymentMethod: "CASH" | "BANK",
-  bankName?: string
-    ) => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    // PETTY CASH
-    if (paymentMethod === "CASH") {
-      const snap = await getDocs(
-        query(
-          collection(db, "pettyCash"),
-          where("userId", "==", user.uid)
-        )
-      );
-
-      if (!snap.empty) {
-        await updateDoc(doc(db, "pettyCash", snap.docs[0].id), {
-          balance: increment(-amount),
-        });
-      }
-    }
-
-    // BANK
-    if (paymentMethod === "BANK" && bankName) {
-      const snap = await getDocs(
-        query(
-          collection(db, "bankAccounts"),
-          where("userId", "==", user.uid),
-          where("bankName", "==", bankName)
-        )
-      );
-
-      if (!snap.empty) {
-        await updateDoc(doc(db, "bankAccounts", snap.docs[0].id), {
-          balance: increment(-amount),
-        });
-      }
-    }
-  };
+  // NOTE: We don't need to manually update petty cash or bank balances
+  // because the Petty Cash and Bank pages calculate balances from transactions
+  // This keeps the system transaction-based and auditable
 
 
     const savePayment = async (e: any) => {
@@ -213,14 +175,7 @@ if (expenseType === "OPERATIONAL") {
     return;
   }
 
-  // 1️⃣ Deduct from bank / petty cash
-  await applyOperationalPayment(
-    finalAmount,
-    paymentMethod,
-    bankName
-  );
-
-  // 2️⃣ Save operational expense
+  // Save operational expense (balance is calculated from transactions)
   await addDoc(collection(db, "operationalExpenses"), {
     categoryId,
     categoryName,
