@@ -29,55 +29,74 @@ export default function SuppliersPage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        const q = query(
-          collection(db, "suppliers"),
-          where("userId", "==", user.uid)
-        );
+        console.log('🔄 Loading suppliers data...');
+        const startTime = performance.now();
 
-        const snap = await getDocs(q);
+        // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
+        const [suppliersSnap, allPurchasesSnap, allExpensesSnap] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "suppliers"),
+              where("userId", "==", user.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "purchases"),
+              where("userId", "==", user.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "expenses"),
+              where("userId", "==", user.uid)
+            )
+          )
+        ]);
 
-        const list: SupplierType[] = [];
+        console.log(`✅ Data loaded in ${(performance.now() - startTime).toFixed(0)}ms`);
+        console.log(`📊 Suppliers: ${suppliersSnap.size}, Purchases: ${allPurchasesSnap.size}, Expenses: ${allExpensesSnap.size}`);
 
-for (const d of snap.docs) {
-  const supplier = d.data() as SupplierType;
-  const supplierId = d.id;
+        // ✅ Group purchases by supplierId in memory (O(n) operation)
+        const purchasesBySupplier: Record<string, number> = {};
+        allPurchasesSnap.forEach((doc) => {
+          const data = doc.data();
+          const supplierId = data.supplierId;
+          const amount = Number(data.total || data.subtotal || 0);
 
-            // 1️⃣ Fetch purchases
-            const purchaseSnap = await getDocs(
-              query(
-                collection(db, "purchases"),
-                where("supplierId", "==", supplierId),
-                where("userId", "==", user.uid)
-              )
-            );
-
-            const totalPurchases = purchaseSnap.docs
-              .map((p) => Number(p.data().total || p.data().subtotal || 0))
-              .reduce((a, b) => a + b, 0);
-
-            // 2️⃣ Fetch expenses (payments)
-            const expenseSnap = await getDocs(
-              query(
-                collection(db, "expenses"),
-                where("supplierId", "==", supplierId),
-                where("userId", "==", user.uid)
-              )
-            );
-
-            const totalPayments = expenseSnap.docs
-              .map((e) => Number(e.data().amount || 0))
-              .reduce((a, b) => a + b, 0);
-
-            const opening = Number(supplier.previousBalance || 0);
-            const currentBalance = opening + totalPurchases - totalPayments;
-
-            list.push({
-              ...supplier,
-              id: supplierId,
-              currentBalance, // ✅ REAL BALANCE
-            });
+          if (supplierId) {
+            purchasesBySupplier[supplierId] = (purchasesBySupplier[supplierId] || 0) + amount;
           }
+        });
 
+        // ✅ Group expenses (payments) by supplierId in memory (O(n) operation)
+        const paymentsBySupplier: Record<string, number> = {};
+        allExpensesSnap.forEach((doc) => {
+          const data = doc.data();
+          const supplierId = data.supplierId;
+          const amount = Number(data.amount || 0);
+
+          if (supplierId) {
+            paymentsBySupplier[supplierId] = (paymentsBySupplier[supplierId] || 0) + amount;
+          }
+        });
+
+        // ✅ Build supplier list with calculated balances
+        const list: SupplierType[] = suppliersSnap.docs.map((d) => {
+          const supplier = d.data() as SupplierType;
+          const supplierId = d.id;
+
+          const totalPurchases = purchasesBySupplier[supplierId] || 0;
+          const totalPayments = paymentsBySupplier[supplierId] || 0;
+          const opening = Number(supplier.previousBalance || 0);
+          const currentBalance = opening + totalPurchases - totalPayments;
+
+          return {
+            ...supplier,
+            id: supplierId,
+            currentBalance,
+          };
+        });
 
         // Sort alphabetically like customers page
         list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));

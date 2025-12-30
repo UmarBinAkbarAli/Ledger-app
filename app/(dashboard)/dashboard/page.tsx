@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import Button from "@/components/ui/Button";
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect } from "react";
 import IncomeForm from "@/components/forms/IncomeForm";
 import ExpenseForm from "@/components/forms/ExpenseForm";
 import TransferForm from "@/components/forms/TransferForm";
+import { auth } from "@/lib/firebase";
 
 export default function DashboardPage() {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false); // NEW STATE
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [userName, setUserName] = useState("User");
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) {
+      // Use displayName if available, otherwise use email, otherwise "User"
+      setUserName(user.displayName || user.email?.split('@')[0] || "User");
+    }
+  }, []);
 
   return (
     <div className="p-6">
@@ -52,7 +62,7 @@ export default function DashboardPage() {
         </h1>
         <div className="h-1 w-20 bg-blue-500 rounded mb-4"></div>
         <p className="text-lg md:text-xl text-gray-300 font-light">
-          Welcome back, <span className="font-semibold text-white">Babar Akbar</span>
+          Welcome back, <span className="font-semibold text-white">{userName}</span>
         </p>
       </div>
 
@@ -102,3 +112,4 @@ function ModalWrapper({ children, onClose, title }: { children: ReactNode; onClo
     </div>
   );
 }
+

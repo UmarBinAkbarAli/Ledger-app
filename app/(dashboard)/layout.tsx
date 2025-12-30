@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const online = useOnlineStatus();
 
   useEffect(() => {
-    onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
         router.push("/login");
       } else {
@@ -24,7 +24,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
-  }, []);
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [router]);
 
   if (loading) {
     return <div className="p-6">Loading...</div>;

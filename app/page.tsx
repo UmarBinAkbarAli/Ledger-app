@@ -16,6 +16,7 @@ export default function HomePage() {
       }
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [router]);
 

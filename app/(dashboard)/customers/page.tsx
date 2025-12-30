@@ -28,62 +28,75 @@ export default function CustomersPage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        const q = query(
-          collection(db, "customers"),
-          where("userId", "==", user.uid)
-        );
+        // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
+        const [customersSnap, allSalesSnap, allPaymentsSnap] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "customers"),
+              where("userId", "==", user.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "sales"),
+              where("userId", "==", user.uid)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "income"),
+              where("userId", "==", user.uid)
+            )
+          )
+        ]);
 
-        const snap = await getDocs(q);
+        // ✅ Group sales by customerId in memory (O(n) operation)
+        const salesByCustomer: Record<string, number> = {};
+        allSalesSnap.forEach((doc) => {
+          const data = doc.data();
+          const customerId = data.customerId;
+          const amount = Number(data.total || data.subtotal || 0);
 
-        const list: CustomerType[] = [];
+          if (customerId) {
+            salesByCustomer[customerId] = (salesByCustomer[customerId] || 0) + amount;
+          }
+        });
 
-            for (const d of snap.docs) {
-              const customer = d.data() as CustomerType;
-              const customerId = d.id;
+        // ✅ Group payments by customerId in memory (O(n) operation)
+        const paymentsByCustomer: Record<string, number> = {};
+        allPaymentsSnap.forEach((doc) => {
+          const data = doc.data();
+          const customerId = data.customerId;
+          const amount = Number(data.amount || 0);
 
-              // 1️⃣ Total sales
-              const salesSnap = await getDocs(
-                query(
-                  collection(db, "sales"),
-                  where("customerId", "==", customerId),
-                  where("userId", "==", user.uid)
-                )
-              );
+          if (customerId) {
+            paymentsByCustomer[customerId] = (paymentsByCustomer[customerId] || 0) + amount;
+          }
+        });
 
-              const totalSales = salesSnap.docs
-                .map((s) => Number(s.data().total || s.data().subtotal || 0))
-                .reduce((a, b) => a + b, 0);
+        // ✅ Build customer list with calculated balances
+        const list: CustomerType[] = customersSnap.docs.map((d) => {
+          const customer = d.data() as CustomerType;
+          const customerId = d.id;
 
-              // 2️⃣ Total payments received
-              const paymentSnap = await getDocs(
-                query(
-                  collection(db, "income"),
-                  where("customerId", "==", customerId),
-                  where("userId", "==", user.uid)
-                )
-              );
+          const totalSales = salesByCustomer[customerId] || 0;
+          const totalPayments = paymentsByCustomer[customerId] || 0;
+          const opening = Number(customer.previousBalance || 0);
+          const currentBalance = opening + totalSales - totalPayments;
 
-              const totalPayments = paymentSnap.docs
-                .map((p) => Number(p.data().amount || 0))
-                .reduce((a, b) => a + b, 0);
-
-              const opening = Number(customer.previousBalance || 0);
-              const currentBalance = opening + totalSales - totalPayments;
-
-              list.push({
-                ...customer,
-                id: customerId,
-                currentBalance, // ✅ REAL BALANCE
-              });
-            }
-
+          return {
+            ...customer,
+            id: customerId,
+            currentBalance,
+          };
+        });
 
         // Sort alphabetically for clean UI
         list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
         setCustomers(list);
       } catch (err) {
-        console.error(err);
+        console.error("Error loading customers:", err);
       } finally {
         setLoading(false);
       }
