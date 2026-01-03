@@ -22,11 +22,10 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
+  const loadCustomers = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
         // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
         const [customersSnap, allSalesSnap, allPaymentsSnap] = await Promise.all([
@@ -102,7 +101,21 @@ export default function CustomersPage() {
       }
     };
 
+  // Load data on mount
+  useEffect(() => {
     loadCustomers();
+  }, []);
+
+  // Auto-refresh when page becomes visible (user switches back to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadCustomers();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   if (loading) return <p className="p-6">Loading customers...</p>;

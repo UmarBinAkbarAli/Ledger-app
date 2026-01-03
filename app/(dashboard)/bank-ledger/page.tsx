@@ -100,6 +100,18 @@ export default function BankLedgerPage() {
     setClosingBalance(openingBalance + bankIn - bankOut);
   }, [openingBalance, bankIn, bankOut]);
 
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        window.location.reload(); // Full reload to refresh all data
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   if (loading) return <div className="p-6 text-center">Loading...</div>;
 
   return (

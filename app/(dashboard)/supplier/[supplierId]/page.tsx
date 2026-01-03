@@ -138,6 +138,18 @@ export default function SupplierLedgerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId]);
 
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        window.location.reload(); // Full reload to refresh all data
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   // Build ledger rows: previous balance, purchases, payments
   const rows = useMemo(() => {
     if (!supplier) return [];

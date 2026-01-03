@@ -5,7 +5,6 @@ import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
-
 interface SupplierType {
   id: string;
   name?: string;
@@ -23,11 +22,10 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const loadSuppliers = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
+  const loadSuppliers = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
         console.log('🔄 Loading suppliers data...');
         const startTime = performance.now();
@@ -109,7 +107,21 @@ export default function SuppliersPage() {
       }
     };
 
+  // Load data on mount
+  useEffect(() => {
     loadSuppliers();
+  }, []);
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadSuppliers();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   if (loading) return <p className="p-6">Loading suppliers...</p>;

@@ -164,6 +164,20 @@ export default function CustomerLedgerPage(): JSX.Element {
   }, [customerId, router]);
 
   /* ---------------------------------------------
+     Auto-refresh when page becomes visible
+  ----------------------------------------------*/
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        window.location.reload(); // Full reload to refresh all data
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  /* ---------------------------------------------
      Build Ledger Rows
   ----------------------------------------------*/
   useEffect(() => {

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
-import { 
-  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp 
+import {
+  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp
 } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
 
@@ -151,6 +151,18 @@ export default function PettyCashPage() {
   useEffect(() => {
     setClosingBalance(openingBalance + cashIn - cashOut);
   }, [openingBalance, cashIn, cashOut]);
+
+  // 6. AUTO-REFRESH when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        window.location.reload(); // Full reload to refresh all data
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   if (loading && !transactions.length) return <div className="p-6 text-center">Loading...</div>;
 

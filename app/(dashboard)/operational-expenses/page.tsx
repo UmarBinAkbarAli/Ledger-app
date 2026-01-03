@@ -17,7 +17,6 @@ import {
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
-
 type OperationalExpense = {
   id: string;
   categoryName: string;
@@ -74,8 +73,24 @@ export default function OperationalExpensesPage() {
     setLoading(false);
   };
 
- useEffect(() => { setCategorySearch(""); setShowCategoryDropdown(false); loadExpenses();
-}, [filter]);
+  // Load data when filter changes
+  useEffect(() => {
+    setCategorySearch("");
+    setShowCategoryDropdown(false);
+    loadExpenses();
+  }, [filter]);
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadExpenses();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [filter]);
 
 
 const filteredExpenses = expenses.filter((e) => {
