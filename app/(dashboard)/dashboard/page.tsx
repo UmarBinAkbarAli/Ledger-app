@@ -6,7 +6,7 @@ import IncomeForm from "@/components/forms/IncomeForm";
 import ExpenseForm from "@/components/forms/ExpenseForm";
 import TransferForm from "@/components/forms/TransferForm";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils";
 
 type TimePeriod = "today" | "thisMonth" | "lastMonth" | "last7Days" | "last30Days";
@@ -38,7 +38,10 @@ export default function DashboardPage() {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [userName, setUserName] = useState("User");
+  const [companyName, setCompanyName] = useState("Your Company");
+  const [ownerName, setOwnerName] = useState("Owner Name");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("today");
+  const [showCards, setShowCards] = useState(true);
   const [metrics, setMetrics] = useState<MetricData>({
     totalSales: 0,
     totalPurchases: 0,
@@ -55,10 +58,26 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      setUserName(user.displayName || user.email?.split('@')[0] || "User");
-    }
+    const loadUserProfile = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        setUserName(user.displayName || user.email?.split('@')[0] || "User");
+
+        // Fetch user profile from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setCompanyName(data.companyName || "Your Company");
+            setOwnerName(data.ownerName || "Owner Name");
+          }
+        } catch (err) {
+          console.error("Error loading user profile:", err);
+        }
+      }
+    };
+
+    loadUserProfile();
   }, []);
 
   // Load financial data when time period changes
@@ -338,7 +357,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background-light">
       {/* FINANCIAL OVERVIEW SECTION */}
-      <div className="px-4 py-6 md:px-8 lg:px-12 w-full max-w-[1400px] mx-auto">
+      <div className="px-6 py-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-3">
             Financial Overview
@@ -347,6 +366,15 @@ export default function DashboardPage() {
             </span>
           </h2>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCards(!showCards)}
+              className="flex items-center gap-2 rounded-full border border-border-light bg-white px-4 py-2 text-sm font-medium text-text-primary hover:border-primary/50 hover:bg-gray-50 transition-all shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {showCards ? 'visibility_off' : 'visibility'}
+              </span>
+              {showCards ? 'Hide Cards' : 'Show Cards'}
+            </button>
             <select
               value={timePeriod}
               onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
@@ -363,7 +391,7 @@ export default function DashboardPage() {
 
         {loading ? (
           <div className="text-center py-10 text-gray-500">Loading financial data...</div>
-        ) : (
+        ) : showCards ? (
           <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {/* Total Sales */}
             <MetricCard
@@ -417,26 +445,39 @@ export default function DashboardPage() {
               iconColor="text-purple-500"
             />
           </section>
-        )}
+        ) : null}
       </div>
 
       {/* MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 px-6 items-center">
         {/* LEFT: BRANDING BANNER */}
         <div className="lg:col-span-2">
-          <div className="w-full bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-8 shadow-sm border border-border-light text-white flex flex-col items-start justify-center min-h-[280px]">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">
-              Boxilla Packages
-            </h1>
-            <div className="h-1 w-20 bg-primary rounded mb-4"></div>
-            <p className="text-lg md:text-xl text-gray-300 font-light">
-              Babar akbar
-            </p>
+          <div className="w-full bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-8 shadow-sm border border-border-light text-white flex flex-col items-start justify-center min-h-[280px] relative overflow-hidden">
+            {/* Background decoration */}
+            <div className="absolute -right-10 -top-10 size-40 rounded-full bg-white/5 blur-3xl"></div>
+            <div className="absolute -left-10 -bottom-10 size-40 rounded-full bg-primary/20 blur-3xl"></div>
+
+            <div className="relative z-10">
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2">
+                {companyName}
+              </h1>
+              <div className="h-1 w-20 bg-primary rounded mb-4"></div>
+              <p className="text-lg md:text-xl text-gray-300 font-light">
+                {ownerName}
+              </p>
+              <Link
+                href="/settings/profile"
+                className="mt-4 inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">edit</span>
+                Edit Profile
+              </Link>
+            </div>
           </div>
         </div>
 
         {/* RIGHT: QUICK ACTIONS */}
-        <div>
+        <div className="flex flex-col">
           <h2 className="text-lg font-bold text-text-primary mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             {/* Add Income */}
@@ -492,7 +533,7 @@ export default function DashboardPage() {
       </div>
 
       {/* RECENT TRANSACTIONS */}
-      <div className="bg-white rounded-xl shadow-sm border border-border-light p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-border-light p-6 mx-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-text-primary">Recent Transactions</h2>
           <Link href="/sales" className="text-sm text-primary hover:text-primary-dark font-medium flex items-center gap-1">
