@@ -4,9 +4,27 @@
 
 /* Base Theme */
 body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #ffffff;
-  color: #000;
+  font-family: 'Manrope', sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Ledger print header – B/W friendly */
