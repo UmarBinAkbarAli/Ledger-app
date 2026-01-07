@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import Link from "next/link";
 
 type Item = {
   description: string;
@@ -53,6 +54,12 @@ export default function EditSalePage() {
   // ================================
   const [items, setItems] = useState<Item[]>([]);
   const [subtotal, setSubtotal] = useState(0);
+
+  // ================================
+  // LINKED CHALLANS (Read-only)
+  // ================================
+  const [linkedChallanIds, setLinkedChallanIds] = useState<string[]>([]);
+  const [linkedChallanNumbers, setLinkedChallanNumbers] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -135,6 +142,10 @@ export default function EditSalePage() {
 
         setItems(data.items || []);
         setSubtotal(Number(data.subtotal || 0));
+
+        // Load linked challans
+        setLinkedChallanIds(data.challanIds || []);
+        setLinkedChallanNumbers(data.challanNumbers || []);
       } catch (err) {
         console.error(err);
         setMessage("Error loading invoice.");
@@ -365,6 +376,53 @@ export default function EditSalePage() {
             />
           </div>
         </section>
+
+        {/* ======================= LINKED CHALLANS (Read-only) ======================= */}
+        {linkedChallanNumbers.length > 0 && (
+          <section>
+            <div className="bg-green-700 text-white px-4 py-2 rounded-t-md font-semibold">
+              Linked Delivery Challans (Read-only)
+            </div>
+
+            <div className="border border-gray-200 p-5 rounded-b-md bg-green-50">
+              <p className="text-sm text-gray-700 mb-3">
+                ⚠️ This invoice was created from the following delivery challan(s). The challan link cannot be changed after creation.
+              </p>
+
+              <div className="space-y-2">
+                {linkedChallanNumbers.map((challanNum, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-white border border-green-300 rounded"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-green-700">
+                        local_shipping
+                      </span>
+                      <div>
+                        <div className="font-semibold text-green-900">
+                          {challanNum}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          Delivery Challan
+                        </div>
+                      </div>
+                    </div>
+                    {linkedChallanIds[idx] && (
+                      <Link
+                        href={`/delivery-challan/${linkedChallanIds[idx]}`}
+                        target="_blank"
+                        className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                      >
+                        View Challan
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ======================= ITEMS SECTION ======================= */}
         <section>

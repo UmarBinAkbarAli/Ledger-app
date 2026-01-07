@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { generatePDF } from "@/app/utils/pdfGenerator";
 import ShareButton from "@/components/ShareButton";
+import Link from "next/link";
 
 export default function SaleInvoicePage() {
   const { saleId } = useParams();
@@ -117,6 +118,33 @@ export default function SaleInvoicePage() {
               <div className="text-sm">{sale.terms || "CASH"}</div>
             </div>
           </div>
+
+          {/* Linked Challans Section */}
+          {sale.challanNumbers && sale.challanNumbers.length > 0 && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded print:bg-white print:border-gray-300">
+              <div className="font-semibold text-green-900 mb-2 text-sm print:text-black">
+                📦 Linked Delivery Challans:
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sale.challanNumbers.map((challanNum: string, idx: number) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-green-800 print:text-black">
+                      {challanNum}
+                    </span>
+                    {sale.challanIds && sale.challanIds[idx] && (
+                      <Link
+                        href={`/delivery-challan/${sale.challanIds[idx]}`}
+                        className="text-xs text-blue-600 hover:underline print:hidden"
+                      >
+                        View
+                      </Link>
+                    )}
+                    {idx < sale.challanNumbers.length - 1 && <span className="text-gray-400">•</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Items table */}
           <div className="mb-4">

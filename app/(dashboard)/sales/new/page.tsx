@@ -9,10 +9,14 @@ import {
   collection,
   serverTimestamp,
   getDocs,
+  getDoc,
   query,
   where,
   orderBy,
   limit,
+  doc,
+  updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -24,6 +28,15 @@ type Item = {
   qty: string;
   unitPrice: string;
   amount: number;
+};
+
+type Challan = {
+  id: string;
+  challanNumber: string;
+  date: string;
+  vehicle: string;
+  totalQuantity: number;
+  items: { description: string; qty: number }[];
 };
 
 export default function AddSalePage() {
@@ -42,8 +55,14 @@ const [showDropdown, setShowDropdown] = useState(false);
 // If coming from customer ledger, read saleCustomerId
 const searchParams = useSearchParams();
 const saleCustomerId = searchParams.get("saleCustomerId");
+const challanIdsParam = searchParams.get("challanIds");
 
   const router = useRouter();
+
+  // Challan states
+  const [availableChallans, setAvailableChallans] = useState<Challan[]>([]);
+  const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
+  const [showChallanDropdown, setShowChallanDropdown] = useState(false);
 
   // Invoice header
   const [billNumber, setBillNumber] = useState("");
@@ -143,6 +162,104 @@ useEffect(() => {
   }
 }, [saleCustomerId, customers]);
 
+// Load available challans when customer is selected
+useEffect(() => {
+  const loadChallans = async () => {
+    if (!customerId) {
+      setAvailableChallans([]);
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const q = query(
+        collection(db, "deliveryChallans"),
+        where("userId", "==", user.uid),
+        where("customerId", "==", customerId),
+        where("status", "in", ["pending", "delivered"])
+      );
+      const snap = await getDocs(q);
+
+      const list: Challan[] = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          challanNumber: data.challanNumber || "",
+          date: data.date || "",
+          vehicle: data.vehicle || "",
+          totalQuantity: data.totalQuantity || 0,
+          items: data.items || [],
+        };
+      });
+
+      setAvailableChallans(list);
+    } catch (error) {
+      console.error("Error loading challans:", error);
+    }
+  };
+
+  loadChallans();
+}, [customerId]);
+
+// Auto-load challans from URL parameter and set customer
+useEffect(() => {
+  if (!challanIdsParam) return;
+
+  const idsFromUrl = challanIdsParam.split(",").filter(Boolean);
+  if (idsFromUrl.length === 0) return;
+
+  const loadChallansFromUrl = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      // Load the first challan to get customer info
+      const firstChallanDoc = await getDoc(doc(db, "deliveryChallans", idsFromUrl[0]));
+      if (!firstChallanDoc.exists()) return;
+
+      const firstChallanData = firstChallanDoc.data();
+
+      // Set customer info from first challan
+      setCustomerId(firstChallanData.customerId || "");
+      setCustomerName(firstChallanData.customerName || "");
+      setCustomerCompany(firstChallanData.customerCompany || "");
+      setCustomerAddress(firstChallanData.customerAddress || "");
+      setCustomerPhone(firstChallanData.customerPhone || "");
+      setCustomerChNo(firstChallanData.customerChNo || "");
+
+      // Load all selected challans
+      const challanPromises = idsFromUrl.map(id => getDoc(doc(db, "deliveryChallans", id)));
+      const challanDocs = await Promise.all(challanPromises);
+
+      const loadedChallans: Challan[] = challanDocs
+        .filter(d => d.exists())
+        .map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            challanNumber: data.challanNumber || "",
+            date: data.date || "",
+            vehicle: data.vehicle || "",
+            totalQuantity: data.totalQuantity || 0,
+            items: data.items || [],
+          };
+        });
+
+      // Set available challans to include the loaded ones
+      setAvailableChallans(loadedChallans);
+
+      // Auto-select the challans
+      setSelectedChallanIds(idsFromUrl);
+    } catch (error) {
+      console.error("Error loading challans from URL:", error);
+    }
+  };
+
+  loadChallansFromUrl();
+}, [challanIdsParam]);
+
 // Filter customers real-time
 useEffect(() => {
   if (!customerName.trim()) {
@@ -167,7 +284,54 @@ const handleSelectCustomer = (c: any) => {
   setCustomerChNo(c.chNo || "");
 
   setShowDropdown(false);
+
+  // Reset challan selection when customer changes
+  setSelectedChallanIds([]);
+  setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
 };
+
+// Handle challan selection/deselection
+const handleToggleChallan = (challanId: string) => {
+  setSelectedChallanIds((prev) => {
+    if (prev.includes(challanId)) {
+      return prev.filter((id) => id !== challanId);
+    } else {
+      return [...prev, challanId];
+    }
+  });
+};
+
+// Auto-fill items from selected challans
+useEffect(() => {
+  if (selectedChallanIds.length === 0) {
+    // If no challans selected, reset to empty item
+    if (items.length === 0 || items.every(it => !it.description.trim())) {
+      setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
+    }
+    return;
+  }
+
+  // Merge items from all selected challans
+  const selectedChallans = availableChallans.filter((ch) =>
+    selectedChallanIds.includes(ch.id)
+  );
+
+  const mergedItems: Item[] = [];
+  selectedChallans.forEach((challan) => {
+    challan.items.forEach((item) => {
+      mergedItems.push({
+        description: item.description,
+        qty: String(item.qty),
+        unitPrice: "0", // Price needs to be filled manually
+        amount: 0,
+      });
+    });
+  });
+
+  if (mergedItems.length > 0) {
+    setItems(mergedItems);
+  }
+}, [selectedChallanIds, availableChallans]);
 
 
   // Recalculate amounts when items change
@@ -262,6 +426,12 @@ const handleSubmit = async (e: any) => {
       setCustomers((prev) => [{ id: finalCustomerId, ...newCustObj }, ...prev]);
     }
 
+    // Get selected challan details
+    const selectedChallans = availableChallans.filter((ch) =>
+      selectedChallanIds.includes(ch.id)
+    );
+    const challanNumbers = selectedChallans.map((ch) => ch.challanNumber);
+
     // Build sale object using finalCustomerId (guaranteed)
     const saleObj: any = {
       customerId: finalCustomerId,     // <- important
@@ -282,8 +452,29 @@ const handleSubmit = async (e: any) => {
       createdAt: serverTimestamp(),
     };
 
+    // Add challan references only if they exist
+    if (selectedChallanIds.length > 0) {
+      saleObj.challanIds = selectedChallanIds;
+      saleObj.challanNumbers = challanNumbers;
+    }
+
     // Save sale
     const docRef = await addDoc(collection(db, "sales"), saleObj);
+
+    // Update linked challans status to "invoiced"
+    if (selectedChallanIds.length > 0) {
+      const batch = writeBatch(db);
+      selectedChallanIds.forEach((challanId) => {
+        const challanRef = doc(db, "deliveryChallans", challanId);
+        batch.update(challanRef, {
+          status: "invoiced",
+          invoiceId: docRef.id,
+          invoiceNumber: billNumber,
+          updatedAt: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+    }
 
     // Redirect to invoice page
     router.push(`/sales/${docRef.id}`);
@@ -456,6 +647,55 @@ const handleSubmit = async (e: any) => {
             </div>
           </section>
 
+      {/* ======================= CHALLAN SELECTION ======================= */}
+      {customerId && availableChallans.length > 0 && (
+        <section>
+          <div className="bg-green-700 text-white px-4 py-2 rounded-t-md font-semibold">
+            Link Delivery Challans (Optional)
+          </div>
+
+          <div className="border border-gray-200 p-5 rounded-b-md bg-gray-50">
+            <p className="text-sm text-gray-600 mb-3">
+              Select delivery challan(s) to auto-fill items. You can select multiple challans.
+            </p>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {availableChallans.map((challan) => (
+                <label
+                  key={challan.id}
+                  className="flex items-start gap-3 p-3 border border-gray-300 rounded hover:bg-blue-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedChallanIds.includes(challan.id)}
+                    onChange={() => handleToggleChallan(challan.id)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="font-semibold text-blue-900">
+                      {challan.challanNumber}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Date: {challan.date} | Vehicle: {challan.vehicle} | Total Qty: {challan.totalQuantity.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {challan.items.length} item(s)
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {selectedChallanIds.length > 0 && (
+              <div className="mt-3 p-3 bg-blue-100 border border-blue-300 rounded">
+                <p className="text-sm font-semibold text-blue-900">
+                  ✓ {selectedChallanIds.length} challan(s) selected - Items auto-filled below
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ======================= ITEMS SECTION ======================= */}
       <section>

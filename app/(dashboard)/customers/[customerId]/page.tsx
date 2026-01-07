@@ -41,6 +41,7 @@ type LedgerRow = {
   price: number;
   receive: number;
   highlight?: boolean;
+  notes?: string; // Payment info/details
 };
 
 export default function CustomerLedgerPage(): JSX.Element {
@@ -252,13 +253,14 @@ export default function CustomerLedgerPage(): JSX.Element {
         id: `pay-${p.id}`,
         type: "payment",
         date: payDate,
-        particular: p.details ?? "Payment Received",
+        particular: "Payment Received",
         folio: p.billNumber ?? "-",
         qty: "",
         rate: "",
         price: 0,
         receive: Number(p.amount ?? 0),
         highlight: true,
+        notes: p.details || (p as any).note || (p as any).notes || (p as any).description || (p as any).remarks || "",
       });
     }
 
@@ -520,13 +522,27 @@ export default function CustomerLedgerPage(): JSX.Element {
                           >
                             <td className="p-2">{r.date || "-"}</td>
                             <td className="p-2">{r.particular}</td>
-                            <td className="p-2">{r.folio}</td>
-                            <td className="p-2 text-right">
-                              {r.qty === "" ? "" : r.qty}
-                            </td>
-                            <td className="p-2 text-right">
-                              {r.rate === "" ? "" : r.rate}
-                            </td>
+
+                            {r.type === "payment" ? (
+                              <>
+                                {/* PAYMENT ROW - MERGE CELLS FOR NOTES */}
+                                <td colSpan={3} className="p-2 italic text-gray-600">
+                                  {r.notes || "—"}
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                {/* SALE/PREVIOUS ROW - NORMAL CELLS */}
+                                <td className="p-2">{r.folio}</td>
+                                <td className="p-2 text-right">
+                                  {r.qty === "" ? "" : r.qty}
+                                </td>
+                                <td className="p-2 text-right">
+                                  {r.rate === "" ? "" : r.rate}
+                                </td>
+                              </>
+                            )}
+
                             <td className="p-2 text-right">
                               {r.price ? r.price.toLocaleString() : ""}
                             </td>

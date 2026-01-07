@@ -41,7 +41,15 @@ export default function DashboardPage() {
   const [companyName, setCompanyName] = useState("Your Company");
   const [ownerName, setOwnerName] = useState("Owner Name");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("today");
-  const [showCards, setShowCards] = useState(true);
+
+  // Load showCards state from localStorage
+  const [showCards, setShowCards] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboardShowCards');
+      return saved !== null ? JSON.parse(saved) : true;
+    }
+    return true;
+  });
   const [metrics, setMetrics] = useState<MetricData>({
     totalSales: 0,
     totalPurchases: 0,
@@ -367,7 +375,11 @@ export default function DashboardPage() {
           </h2>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowCards(!showCards)}
+              onClick={() => {
+                const newValue = !showCards;
+                setShowCards(newValue);
+                localStorage.setItem('dashboardShowCards', JSON.stringify(newValue));
+              }}
               className="flex items-center gap-2 rounded-full border border-border-light bg-white px-4 py-2 text-sm font-medium text-text-primary hover:border-primary/50 hover:bg-gray-50 transition-all shadow-sm"
             >
               <span className="material-symbols-outlined text-[18px]">

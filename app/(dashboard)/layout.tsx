@@ -78,6 +78,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           <nav className="flex flex-col space-y-2">
             <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>
+            <Link className="hover:text-primary transition-colors text-text-primary" href="/delivery-challan">Delivery Challan</Link>
             <Link className="hover:text-primary transition-colors text-text-primary" href="/sales">Sales</Link>
             <Link className="hover:text-primary transition-colors text-text-primary" href="/income-list">Income</Link>
             <Link className="hover:text-primary transition-colors text-text-primary" href="/purchase">Purchase</Link>
