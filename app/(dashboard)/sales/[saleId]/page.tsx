@@ -131,14 +131,23 @@ export default function SaleInvoicePage() {
               </thead>
               <tbody>
                 {items.length > 0 ? (
-                  items.map((it, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="p-2 align-top">{it.description || "-"}</td>
-                      <td className="p-2 text-right align-top">{Number(it.qty || 0).toLocaleString()}</td>
-                      <td className="p-2 text-right align-top">{fmt(Number(it.unitPrice || 0))}</td>
-                      <td className="p-2 text-right align-top">{fmt(Number(it.amount ?? (it.qty * it.unitPrice || 0)))} </td>
+                  <>
+                    {items.map((it, idx) => (
+                      <tr key={idx} className="border-b">
+                        <td className="p-2 align-top">{it.description || "-"}</td>
+                        <td className="p-2 text-right align-top">{Number(it.qty || 0).toLocaleString()}</td>
+                        <td className="p-2 text-right align-top">{fmt(Number(it.unitPrice || 0))}</td>
+                        <td className="p-2 text-right align-top">{fmt(Number(it.amount ?? (it.qty * it.unitPrice || 0)))} </td>
+                      </tr>
+                    ))}
+                    {/* Total Quantity Row */}
+                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                      <td className="p-2 text-right">Total Quantity:</td>
+                      <td className="p-2 text-right">{items.reduce((sum, it) => sum + Number(it.qty || 0), 0).toLocaleString()}</td>
+                      <td className="p-2"></td>
+                      <td className="p-2"></td>
                     </tr>
-                  ))
+                  </>
                 ) : (
                   <tr><td colSpan={4} className="p-4 text-center text-gray-500">No items</td></tr>
                 )}

@@ -444,6 +444,16 @@ export default function EditSalePage() {
                     </td>
                   </tr>
                 ))}
+                {/* Total Quantity Row */}
+                <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
+                  <td className="p-2 text-right">Total Quantity:</td>
+                  <td className="p-2 text-right">
+                    {items.reduce((sum, it) => sum + Number(it.qty || 0), 0).toLocaleString()}
+                  </td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -452,7 +462,7 @@ export default function EditSalePage() {
         {/* ======================= TOTAL ======================= */}
         <section className="flex justify-end">
           <div className="text-right bg-blue-50 p-5 rounded-lg border border-blue-200 w-60">
-            <div className="text-sm text-gray-600">Subtotal</div>
+            <div className="text-sm text-gray-600">total</div>
             <div className="text-2xl font-bold text-blue-900">
               {subtotal.toLocaleString()}
             </div>
