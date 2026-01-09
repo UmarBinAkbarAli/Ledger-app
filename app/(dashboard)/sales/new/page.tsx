@@ -51,6 +51,8 @@ export default function AddSalePage() {
 const [customers, setCustomers] = useState<any[]>([]);
 const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
 const [showDropdown, setShowDropdown] = useState(false);
+const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
+const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
 // If coming from customer ledger, read saleCustomerId
 const searchParams = useSearchParams();
@@ -275,6 +277,21 @@ useEffect(() => {
   setFilteredCustomers(filtered);
 }, [customerName, customers]);
 
+// Filter companies real-time
+useEffect(() => {
+  if (!customerCompany.trim()) {
+    setFilteredCompanies([]);
+    return;
+  }
+
+  const s = customerCompany.toLowerCase();
+  const filtered = customers.filter((c) =>
+    (c.company || "").toLowerCase().includes(s)
+  );
+
+  setFilteredCompanies(filtered);
+}, [customerCompany, customers]);
+
 const handleSelectCustomer = (c: any) => {
   setCustomerId(c.id); // ⭐ REQUIRED
   setCustomerName(c.name);
@@ -284,10 +301,17 @@ const handleSelectCustomer = (c: any) => {
   setCustomerChNo(c.chNo || "");
 
   setShowDropdown(false);
+  setShowCompanyDropdown(false);
 
   // Reset challan selection when customer changes
   setSelectedChallanIds([]);
   setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
+};
+
+// Select customer by company (reuses handleSelectCustomer)
+const handleSelectCompany = (c: any) => {
+  handleSelectCustomer(c);
+  setShowCompanyDropdown(false);
 };
 
 // Handle challan selection/deselection
@@ -610,13 +634,33 @@ const handleSubmit = async (e: any) => {
               </div>
 
               {/* Company */}
-              <input
-                type="text"
-                placeholder="Company Name"
-                className="border border-gray-300 p-2 rounded"
-                value={customerCompany}
-                onChange={(e) => setCustomerCompany(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Company Name"
+                  className="border border-gray-300 p-2 rounded w-full"
+                  value={customerCompany}
+                  onChange={(e) => { setCustomerCompany(e.target.value); setShowCompanyDropdown(true); setCustomerId(""); }}
+                  onFocus={() => setShowCompanyDropdown(true)}
+                />
+
+                {/* Company Dropdown */}
+                {showCompanyDropdown && filteredCompanies.length > 0 && (
+                  <div className="absolute z-20 bg-white border border-gray-300 rounded mt-1 w-full max-h-40 overflow-y-auto shadow-lg">
+                    {filteredCompanies.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelectCompany(c)}
+                        className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
+                      >
+                        <span className="font-semibold">{c.company || '-'}</span>
+                        <span className="text-xs text-gray-500">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Phone */}
               <input
