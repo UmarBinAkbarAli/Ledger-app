@@ -175,6 +175,12 @@ export default function NewDeliveryChallanPage() {
     setError("");
     setMessage("");
 
+    const user = auth.currentUser;
+    if (!user) {
+      setError("Not authenticated");
+      return;
+    }
+
     // Allow typed customer name and create customer if it doesn't exist (like Sales)
     const typedName = (customerName || "").trim();
     if (!typedName) {
@@ -223,7 +229,6 @@ export default function NewDeliveryChallanPage() {
     setLoading(true);
 
     try {
-      const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
       const challanData = {
