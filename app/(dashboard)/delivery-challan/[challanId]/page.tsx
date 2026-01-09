@@ -5,6 +5,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { generatePDF } from "@/app/utils/pdfGenerator";
 
 interface ChallanItem {
   description: string;
@@ -73,7 +74,38 @@ export default function ViewChallanPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    // Open a new window with the printable HTML to avoid blank print preview issues.
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      window.print(); // fallback
+      return;
+    }
+
+    // Grab the print-only template (if available) to ensure consistent print output
+    const printTemplate = document.getElementById("pdf-print-area");
+    let html = "";
+
+    if (printTemplate) {
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>body{margin:0;padding:0} @page{size:A4;margin:10mm;} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;margin-bottom:6mm;font-family: Arial, Helvetica, sans-serif;} .print-copy *{font-size:11px}</style></head><body>` + printTemplate.innerHTML + `</body></html>`;
+    } else {
+      // fallback: use the visible PDF area
+      const pdfArea = document.getElementById("pdf-area");
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>body{margin:0;padding:0} @page{size:A4;margin:10mm;} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;margin-bottom:6mm;font-family: Arial, Helvetica, sans-serif;} .print-copy *{font-size:11px}</style></head><body>` + (pdfArea ? pdfArea.innerHTML : "") + `</body></html>`;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait until the content is loaded before printing
+    printWindow.onload = function () {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+        // Optionally close the window after printing
+        setTimeout(() => printWindow.close(), 500);
+      }, 200);
+    };
   };
 
   const handleDelete = async () => {
@@ -127,6 +159,16 @@ export default function ViewChallanPage() {
               <span className="material-symbols-outlined text-[20px]">print</span>
               Print
             </button>
+
+            {/* Download 2-up PDF */}
+            <button
+              onClick={() => generatePDF('pdf-area', `challan-${challan.challanNumber || challanId}.pdf`, { copies: 2 })}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[20px]">download</span>
+              Download PDF
+            </button>
+
             <button
               onClick={handleDelete}
               disabled={challan.status === "invoiced"}
@@ -154,8 +196,8 @@ export default function ViewChallanPage() {
         )}
       </div>
 
-      {/* Challan Document - Print-friendly */}
-      <div className="max-w-4xl mx-auto bg-white p-8 print:p-0 my-6 print:my-0 shadow-lg print:shadow-none">
+      {/* Challan Document - Print-friendly (screen view) */}
+      <div id="pdf-area" className="max-w-4xl mx-auto bg-white p-8 print:p-0 my-6 print:my-0 shadow-lg print:shadow-none print:hidden">
         {/* Header */}
         <div className="border-2 border-black p-4 mb-0">
           <div className="flex items-start justify-between mb-2">
@@ -247,6 +289,90 @@ export default function ViewChallanPage() {
         </div>
       </div>
 
+      {/* Print-only: Two copies per A4 page (stacked vertically) */}
+      <div id="pdf-print-area" className="hidden print:block print-only">
+        <div style={{ width: '190mm', margin: '0 auto' }}>
+          {[0,1].map((i) => (
+            <div key={i} className="print-copy" style={{ border: '2px solid #000', padding: '6mm', marginBottom: i === 0 ? '6mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid' }}>
+              {/* Header */}
+              <div style={{ borderBottom: '0px solid transparent', paddingBottom: '4px', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                  <div style={{ width: 80, height: 80, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#999' }}>LOGO</div>
+                  <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>BOXILLA PACKAGES</div>
+                    <div style={{ fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>&amp; you think it, we can ink it</div>
+                    <div style={{ fontSize: 9, marginTop: 4 }}>Gat #470, Bhangoria Goth, Federal B Industrial Area, (75950)-Pakistan</div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 10 }}>
+                    <div>Contact No # 0312 824 6221</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center', borderTop: '2px solid #000', paddingTop: '6px', marginTop: '6px' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>DELIVERY CHALLAN</div>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '6px 0' }}>
+                <div>
+                  <div><strong>Invoice No:</strong> {challan.challanNumber}</div>
+                  <div><strong>Print Date:</strong> {challan.date}</div>
+                  <div><strong>Vehicle:</strong> {challan.vehicle}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div><strong>M/S:</strong> {challan.customerCompany || challan.customerName}</div>
+                  <div><strong>ADDRESS:</strong> {challan.customerAddress || 'N/A'}</div>
+                  <div><strong>P.O.NO.:</strong> {challan.poNumber || 'N/A'}</div>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div style={{ border: '1px solid #000', marginTop: 6 }}>
+                <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left', width: 50 }}>S. NO</th>
+                      <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left' }}>DESCRIPTION</th>
+                      <th style={{ padding: 6, textAlign: 'center', width: 80 }}>QUANTITY</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {challan.items.map((item, idx) => (
+                      <tr key={idx} style={{ borderTop: '1px solid #000' }}>
+                        <td style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'center' }}>{idx + 1}</td>
+                        <td style={{ borderRight: '1px solid #000', padding: 6 }}>{item.description}</td>
+                        <td style={{ padding: 6, textAlign: 'center', fontWeight: 700 }}>{item.qty.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td colSpan={2} style={{ padding: 6 }}></td>
+                      <td style={{ padding: 6, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{challan.totalQuantity.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer signatures */}
+              <div style={{ display: 'flex', marginTop: 8, fontSize: 11 }}>
+                <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
+                  <div style={{ marginBottom: 36 }}>Receiver's Name</div>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>{challan.receiverName || ''}</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
+                  <div style={{ marginBottom: 36 }}>Receiver's Signature</div>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', padding: 6 }}>
+                  <div style={{ marginBottom: 36 }}>Authorize Signature</div>
+                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
+                </div>
+              </div>
+
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
@@ -254,10 +380,20 @@ export default function ViewChallanPage() {
             margin: 0;
             padding: 0;
           }
+
+          /* Enforce A4 and small margins */
           @page {
             size: A4;
             margin: 10mm;
           }
+
+          /* Utility classes for print-only layout */
+          .print-hidden { display: none !important; }
+          .print-only { display: block !important; width: 190mm; margin: 0 auto; }
+          .print-copy { page-break-inside: avoid; margin-bottom: 6mm; }
+
+          /* Reduce font sizes slightly to fit two copies */
+          .print-copy, .print-copy * { font-size: 11px !important; }
         }
       `}</style>
     </div>

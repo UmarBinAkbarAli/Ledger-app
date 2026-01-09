@@ -8,6 +8,7 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -30,10 +31,15 @@ type OperationalExpense = {
 export default function OperationalExpensesPage() {
   const [expenses, setExpenses] = useState<OperationalExpense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"1" | "7" | "30">("1");
   const router = useRouter();
   const [categorySearch, setCategorySearch] = useState("");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  // Default to today's date range
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [fromDate, setFromDate] = useState<string>(todayStr);
+  const [toDate, setToDate] = useState<string>(todayStr);
+  const [dateError, setDateError] = useState<string>('');
 
 
 
@@ -43,17 +49,28 @@ export default function OperationalExpensesPage() {
 
     setLoading(true);
 
-        const start = new Date();
-        start.setDate(start.getDate() - Number(filter));
+        // If a date range is provided, use it; otherwise fall back to preset filter
+    let snap;
+    if (fromDate || toDate) {
+      const clauses: any[] = [where("userId", "==", user.uid)];
+      if (fromDate) clauses.push(where("date", ">=", fromDate));
+      if (toDate) clauses.push(where("date", "<=", toDate));
 
-        const snap = await getDocs(
+      snap = await getDocs(query(collection(db, "operationalExpenses"), ...clauses, orderBy("date", "desc")));
+    } else {
+      const start = new Date();
+      // Fallback to last 30 days if no date range is provided
+      start.setDate(start.getDate() - 30);
+
+      snap = await getDocs(
         query(
-            collection(db, "operationalExpenses"),
-            where("userId", "==", user.uid),
-            where("date", ">=", start.toISOString().split("T")[0])
+          collection(db, "operationalExpenses"),
+          where("userId", "==", user.uid),
+          where("date", ">=", start.toISOString().split("T")[0]),
+          orderBy("date", "desc")
         )
-        );
-
+      );
+    }
 
     setExpenses(
       snap.docs.map((d) => {
@@ -74,11 +91,27 @@ export default function OperationalExpensesPage() {
   };
 
   // Load data when filter changes
+  // Initial load: show today's expenses by default
   useEffect(() => {
     setCategorySearch("");
     setShowCategoryDropdown(false);
+    setDateError('');
+    // Ensure dates default to today if somehow empty
+    setFromDate((d) => d || todayStr);
+    setToDate((d) => d || todayStr);
     loadExpenses();
-  }, [filter]);
+  }, []);
+
+  // reload whenever date range changes
+  useEffect(() => {
+    // If both dates provided validate
+    if (fromDate && toDate && fromDate > toDate) {
+      setDateError("Start date must be before or equal to end date.");
+      return;
+    }
+    setDateError("");
+    loadExpenses();
+  }, [fromDate, toDate]);
 
   // Auto-refresh when page becomes visible
   useEffect(() => {
@@ -90,7 +123,7 @@ export default function OperationalExpensesPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [filter]);
+  }, []);
 
 
 const filteredExpenses = expenses.filter((e) => {
@@ -134,24 +167,39 @@ const uniqueCategories = Array.from(
 
               {loading && <p>Loading...</p>}
                         <div className="overflow-x-auto">
-                            <div className="flex gap-2 mb-4">
+                            <div className="flex gap-2 mb-4 items-center">
                             <div className="flex flex-wrap items-center gap-3 mb-4">
-                        {/* Date Filters */}
-                        {[
-                          { label: "Today", value: "1" },
-                          { label: "7 Days", value: "7" },
-                          { label: "30 Days", value: "30" },
-                        ].map((b) => (
+                        {/* Date Range (custom) */}
+                        <div className="flex items-center gap-2 ml-4">
+                          <label className="text-sm text-gray-600">From</label>
+                          <input type="date" className="border px-2 py-1 rounded text-sm" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                          <label className="text-sm text-gray-600">To</label>
+                          <input type="date" className="border px-2 py-1 rounded text-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} />
                           <button
-                            key={b.value}
-                            onClick={() => setFilter(b.value as any)}
-                            className={`px-3 py-1 rounded text-sm border ${
-                              filter === b.value ? "bg-black text-white" : "bg-white"
-                            }`}
+                            type="button"
+                            onClick={() => { setFromDate(todayStr); setToDate(todayStr); setDateError(''); loadExpenses(); }}
+                            className="px-3 py-1 rounded text-sm border bg-white"
                           >
-                            {b.label}
+                            Reset to Today
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (fromDate && toDate && fromDate > toDate) {
+                                setDateError('Start date must be before or equal to end date.');
+                                return;
+                              }
+                              setDateError('');
+                              loadExpenses();
+                            }}
+                            className="px-3 py-1 rounded text-sm border bg-black text-white ml-2"
+                          >
+                            Apply
+                          </button>
+                          {dateError && (
+                            <div className="text-red-600 text-sm ml-3">{dateError}</div>
+                          )}
+                        </div>
 
                         {/* Category Search */}
                         <div className="relative ml-auto">
