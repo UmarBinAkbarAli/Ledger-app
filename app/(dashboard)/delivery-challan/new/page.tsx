@@ -166,8 +166,8 @@ export default function NewDeliveryChallanPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Calculate total quantity
-  const totalQuantity = items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  // Calculate total quantity (allow decimals)
+  const totalQuantity = items.reduce((sum, item) => sum + (parseFloat(item.qty as any) || 0), 0);
 
   // Submit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -453,8 +453,9 @@ export default function NewDeliveryChallanPage() {
                     </td>
                     <td className="p-2 text-right">
                       <input
-                        type="number"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9]*[.,]?[0-9]*"
                         className="w-24 border border-gray-300 p-1 rounded text-right"
                         value={item.qty}
                         onChange={(e) => updateItem(idx, "qty", e.target.value)}

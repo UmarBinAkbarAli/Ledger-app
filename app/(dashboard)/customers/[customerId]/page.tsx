@@ -625,7 +625,7 @@ export default function CustomerLedgerPage(): JSX.Element {
                 <span>Closing Balance</span>
                 <span>
                   {rows.length
-                    ? rows[rows.length - 1].running.toLocaleString()
+                    ? (rows[rows.length - 1]?.running ?? 0).toLocaleString()
                     : (fromDate ? openingBalance : Number(customer?.previousBalance ?? 0)).toLocaleString()}
                 </span>
               </div>

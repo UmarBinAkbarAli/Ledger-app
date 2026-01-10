@@ -361,8 +361,9 @@ export default function EditDeliveryChallanPage() {
                     </td>
                     <td className="p-2 text-right">
                       <input
-                        type="number"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9]*[.,]?[0-9]*"
                         className="w-24 border border-gray-300 p-1 rounded text-right"
                         value={item.qty}
                         onChange={(e) => updateItem(idx, "qty", e.target.value)}
