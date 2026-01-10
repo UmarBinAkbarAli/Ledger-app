@@ -780,8 +780,9 @@ const handleSubmit = async (e: any) => {
                     <input
                       type="text"
                       inputMode="decimal"
-                      pattern="[0-9]*[.,]?[0-9]*"
+                      pattern="-?[0-9]*[.,]?[0-9]*"
                       className="w-20 border border-gray-300 p-1 rounded text-right"
+                      placeholder="0 or -0"
                       value={it.qty}
                       onChange={(e) => updateItem(idx, "qty", e.target.value)}
                     />
