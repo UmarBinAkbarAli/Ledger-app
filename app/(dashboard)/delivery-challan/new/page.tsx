@@ -237,7 +237,7 @@ export default function NewDeliveryChallanPage() {
         date,
         vehicle: vehicle.trim(),
         poNumber: poNumber.trim(),
-        customerId: selectedCustomerId,
+        customerId: finalCustomerId || selectedCustomerId,
         customerName,
         customerCompany,
         customerAddress,
@@ -251,12 +251,9 @@ export default function NewDeliveryChallanPage() {
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "deliveryChallans"), challanData);
-
-      setMessage("Delivery challan created successfully!");
-      setTimeout(() => {
-        router.push("/delivery-challan");
-      }, 1500);
+      // Save challan and redirect to its preview page (so user can print/download)
+      const docRef = await addDoc(collection(db, "deliveryChallans"), challanData);
+      router.push(`/delivery-challan/${docRef.id}`);
     } catch (err) {
       console.error("Error creating challan:", err);
       setError("Failed to create challan. Please try again.");

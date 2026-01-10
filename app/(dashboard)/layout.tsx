@@ -3,9 +3,10 @@
 import { ReactNode, useEffect, useState } from "react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
+import BackButton from "@/components/BackButton";
 import useOnlineStatus from "@/app/hooks/useOnlineStatus";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -14,6 +15,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
 
   const online = useOnlineStatus();
+  const pathname = usePathname();
+  const showBackButton = pathname && pathname !== "/dashboard" && pathname !== "/"; // hide on main dashboard
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -75,6 +78,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Sidebar */}
         <aside className="w-64 bg-white shadow-md p-5 space-y-4 hidden lg:block">
           <h2 className="text-xl font-bold mb-6 text-text-primary">Menu</h2>
+
+          {showBackButton && (
+            <div className="mb-3">
+              <BackButton />
+            </div>
+          )}
 
           <nav className="flex flex-col space-y-2">
             <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>

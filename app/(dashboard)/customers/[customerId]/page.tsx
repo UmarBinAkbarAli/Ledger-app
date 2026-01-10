@@ -42,6 +42,7 @@ type LedgerRow = {
   receive: number;
   highlight?: boolean;
   notes?: string; // Payment info/details
+  running?: number;
 };
 
 export default function CustomerLedgerPage(): JSX.Element {
@@ -54,6 +55,7 @@ export default function CustomerLedgerPage(): JSX.Element {
   const [payments, setPayments] = useState<DocumentData[]>([]);
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [openingBalance, setOpeningBalance] = useState<number>(0);
 
   // Filters
   const [fromDate, setFromDate] = useState<string>("");
@@ -179,30 +181,12 @@ export default function CustomerLedgerPage(): JSX.Element {
   }, []);
 
   /* ---------------------------------------------
-     Build Ledger Rows
+     Build Ledger Rows (date filters affect visibility only — balances are continuous)
   ----------------------------------------------*/
   useEffect(() => {
     if (!customer) return;
 
     const built: LedgerRow[] = [];
-
-    /* -----------------------------
-       PREVIOUS BALANCE
-    ------------------------------*/
-    const opening = Number(customer.previousBalance ?? 0);
-    if (opening !== 0) {
-      built.push({
-        id: "previous",
-        type: "previous",
-        date: "",
-        particular: "Previous Balance",
-        folio: "-",
-        qty: "",
-        rate: "",
-        price: 0,
-        receive: 0,
-      });
-    }
 
     /* -----------------------------
        SALES → ITEM ROWS
@@ -213,7 +197,7 @@ export default function CustomerLedgerPage(): JSX.Element {
       const rawDate = s.date ?? s.createdAt ?? "";
       const saleDate =
         typeof rawDate === "string"
-          ? rawDate
+          ? rawDate.toString().slice(0, 10)
           : rawDate?.toDate
           ? rawDate.toDate().toISOString().slice(0, 10)
           : new Date(rawDate).toISOString().slice(0, 10);
@@ -244,7 +228,7 @@ export default function CustomerLedgerPage(): JSX.Element {
       const rawDate = p.date ?? p.createdAt ?? "";
       const payDate =
         typeof rawDate === "string"
-          ? rawDate
+          ? rawDate.toString().slice(0, 10)
           : rawDate?.toDate
           ? rawDate.toDate().toISOString().slice(0, 10)
           : new Date(rawDate).toISOString().slice(0, 10);
@@ -265,16 +249,31 @@ export default function CustomerLedgerPage(): JSX.Element {
     }
 
     /* -----------------------------
-       SORT BY DATE
+       SORT BY DATE (robust)
     ------------------------------*/
-    const sorted = built.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    const sorted = built.sort((a, b) => {
+      const ta = a.date ? new Date(a.date).getTime() : 0;
+      const tb = b.date ? new Date(b.date).getTime() : 0;
+      return ta - tb;
+    });
 
     /* -----------------------------
-       FILTERING
+       OPENING BALANCE (include transactions before fromDate)
     ------------------------------*/
-    const filtered = sorted.filter((r) => {
+    const baseOpening = Number(customer.previousBalance ?? 0);
+    let opening = baseOpening;
+
+    if (fromDate) {
+      const pre = sorted.filter((r) => r.date && new Date(r.date) < new Date(fromDate));
+      for (const t of pre) {
+        opening = opening + Number(t.price || 0) - Number(t.receive || 0);
+      }
+    }
+
+    /* -----------------------------
+       TRANSACTIONS IN SELECTED RANGE (these will be displayed / processed for running balance)
+    ------------------------------*/
+    const inRange = sorted.filter((r) => {
       if (fromDate && r.date) {
         if (new Date(r.date) < new Date(fromDate)) return false;
       }
@@ -286,29 +285,28 @@ export default function CustomerLedgerPage(): JSX.Element {
         if (rd > end) return false;
       }
 
-      if (search) {
-        const s = search.toLowerCase();
-        const p = r.particular.toLowerCase();
-        const f = r.folio.toLowerCase();
-        if (!p.includes(s) && !f.includes(s)) return false;
-      }
-
-      return true;
+      return true; // NOTE: do NOT apply search here — search only affects visibility
     });
 
-    setRows(filtered);
-  }, [customer, sales, payments, fromDate, toDate, search]);
+    /* -----------------------------
+       Compute running balance starting from opening
+    ------------------------------*/
+    let bal = opening;
+    const processed: LedgerRow[] = inRange.map((r) => {
+      bal = bal + Number(r.price || 0) - Number(r.receive || 0);
+      return { ...r, running: bal } as LedgerRow & { running: number };
+    });
+
+    setRows(processed);
+    setOpeningBalance(opening);
+  }, [customer, sales, payments, fromDate, toDate]);
 
   /* ---------------------------------------------
-     Running Balance Calculation
+     Running Balance
+     (already computed in build step; rows[] contains running property)
   ----------------------------------------------*/
-  const rowsWithBalance = useMemo(() => {
-    let balance = Number(customer?.previousBalance ?? 0);
-    return rows.map((r) => {
-      balance = balance + Number(r.price) - Number(r.receive);
-      return { ...r, running: balance };
-    });
-  }, [rows, customer]);
+  // rows: Ledger rows for the selected date range, each has `.running` calculated starting from `openingBalance`
+
 
   /* ---------------------------------------------
      PDF + PRINT
@@ -480,7 +478,7 @@ export default function CustomerLedgerPage(): JSX.Element {
               </thead>
 
             <tbody>
-              {rowsWithBalance.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-4 text-center text-gray-500">
                     No transactions
@@ -488,17 +486,42 @@ export default function CustomerLedgerPage(): JSX.Element {
                 </tr>
               ) : (
                 <>
+                  {/* Optional Opening Balance row (visible when fromDate set) */}
+                  {fromDate && (
+                    <tr className="border-t">
+                      <td className="p-2">{fromDate}</td>
+                      <td className="p-2">Opening Balance</td>
+                      <td className="p-2">-</td>
+                      <td className="p-2 text-right"></td>
+                      <td className="p-2 text-right"></td>
+                      <td className="p-2 text-right"></td>
+                      <td className="p-2 text-right"></td>
+                      <td className="p-2 text-right font-semibold">
+                        {openingBalance.toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+
                   {(() => {
                     const grouped: Record<string, LedgerRow[]> = {};
 
-                    rowsWithBalance.forEach((r: any) => {
+                    rows.forEach((r: any) => {
                       if (r.type === "sale") {
                         if (!grouped[r.folio]) grouped[r.folio] = [];
                         grouped[r.folio].push(r);
                       }
                     });
 
-                    return rowsWithBalance.map((r: any) => {
+                    const visibleMatch = (r: any) => {
+                      if (!search) return true;
+                      const s = search.toLowerCase();
+                      const p = r.particular.toLowerCase();
+                      const f = r.folio.toLowerCase();
+                      const n = (r.notes || "").toString().toLowerCase();
+                      return p.includes(s) || f.includes(s) || n.includes(s);
+                    };
+
+                    return rows.map((r: any) => {
                       const isLastSaleRow =
                         r.type === "sale" &&
                         grouped[r.folio] &&
@@ -511,6 +534,19 @@ export default function CustomerLedgerPage(): JSX.Element {
                               0
                             )
                           : 0;
+
+                      const rowVisible = visibleMatch(r);
+
+                      // Only render rows that match the search (search affects visibility only)
+                      if (!rowVisible) {
+                        // Still keep grouping and running balances intact, but don't render this row
+                        return null;
+                      }
+
+                      // Determine if invoice total row should be shown: only if at least one row in the group is visible
+                      const groupHasVisible = isLastSaleRow
+                        ? grouped[r.folio].some((x) => visibleMatch(x))
+                        : false;
 
                       return (
                         <React.Fragment key={r.id}>
@@ -555,7 +591,7 @@ export default function CustomerLedgerPage(): JSX.Element {
                           </tr>
 
                           {/* INVOICE TOTAL ROW */}
-                          {isLastSaleRow && (
+                          {isLastSaleRow && groupHasVisible && (
                             <tr className="bg-gray-200 font-semibold border-b">
                               <td colSpan={4}></td>
                               <td className="p-2 text-right">Invoice Total:</td>
@@ -581,20 +617,16 @@ export default function CustomerLedgerPage(): JSX.Element {
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Opening Balance</span>
                 <span>
-                  {Number(customer?.previousBalance ?? 0).toLocaleString()}
+                  {fromDate ? openingBalance.toLocaleString() : Number(customer?.previousBalance ?? 0).toLocaleString()}
                 </span>
               </div>
 
               <div className="flex justify-between text-lg font-bold mt-2">
                 <span>Closing Balance</span>
                 <span>
-                  {rowsWithBalance.length
-                    ? rowsWithBalance[
-                        rowsWithBalance.length - 1
-                      ].running.toLocaleString()
-                    : Number(
-                        customer?.previousBalance ?? 0
-                      ).toLocaleString()}
+                  {rows.length
+                    ? rows[rows.length - 1].running.toLocaleString()
+                    : (fromDate ? openingBalance : Number(customer?.previousBalance ?? 0)).toLocaleString()}
                 </span>
               </div>
             </div>

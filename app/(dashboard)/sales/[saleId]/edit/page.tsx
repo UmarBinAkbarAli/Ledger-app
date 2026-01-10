@@ -381,7 +381,7 @@ export default function EditSalePage() {
         {linkedChallanNumbers.length > 0 && (
           <section>
             <div className="bg-green-700 text-white px-4 py-2 rounded-t-md font-semibold">
-              Linked Delivery Challans (Read-only)
+              Reference Challan: (Read-only)
             </div>
 
             <div className="border border-gray-200 p-5 rounded-b-md bg-green-50">

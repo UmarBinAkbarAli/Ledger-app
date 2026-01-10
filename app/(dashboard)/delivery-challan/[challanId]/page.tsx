@@ -85,12 +85,15 @@ export default function ViewChallanPage() {
     const printTemplate = document.getElementById("pdf-print-area");
     let html = "";
 
+    // Shared print CSS to vertically distribute content and show a tear line between copies
+    const twoUpCSS = `@page{size:A4;margin:10mm;} body{margin:0;padding:0} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;box-sizing:border-box;page-break-inside:avoid;display:flex;flex-direction:column;justify-content:space-between;min-height:135mm;font-family: Arial, Helvetica, sans-serif;} .tear-line{width:190mm;margin:6mm auto;border-top:1px dashed #000;display:flex;align-items:center;justify-content:center;} .tear-line span{background:#fff;padding:0 6px;font-size:10px;} .print-copy *{font-size:11px}`;
+
     if (printTemplate) {
-      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>body{margin:0;padding:0} @page{size:A4;margin:10mm;} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;margin-bottom:6mm;font-family: Arial, Helvetica, sans-serif;} .print-copy *{font-size:11px}</style></head><body>` + printTemplate.innerHTML + `</body></html>`;
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body>` + printTemplate.innerHTML + `</body></html>`;
     } else {
       // fallback: use the visible PDF area
       const pdfArea = document.getElementById("pdf-area");
-      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>body{margin:0;padding:0} @page{size:A4;margin:10mm;} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;margin-bottom:6mm;font-family: Arial, Helvetica, sans-serif;} .print-copy *{font-size:11px}</style></head><body>` + (pdfArea ? pdfArea.innerHTML : "") + `</body></html>`;
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body>` + (pdfArea ? pdfArea.innerHTML : "") + `</body></html>`;
     }
 
     printWindow.document.open();
@@ -293,81 +296,89 @@ export default function ViewChallanPage() {
       <div id="pdf-print-area" className="hidden print:block print-only">
         <div style={{ width: '190mm', margin: '0 auto' }}>
           {[0,1].map((i) => (
-            <div key={i} className="print-copy" style={{ border: '2px solid #000', padding: '6mm', marginBottom: i === 0 ? '6mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid' }}>
-              {/* Header */}
-              <div style={{ borderBottom: '0px solid transparent', paddingBottom: '4px', marginBottom: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                  <div style={{ width: 80, height: 80, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#999' }}>LOGO</div>
-                  <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>BOXILLA PACKAGES</div>
-                    <div style={{ fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>&amp; you think it, we can ink it</div>
-                    <div style={{ fontSize: 9, marginTop: 4 }}>Gat #470, Bhangoria Goth, Federal B Industrial Area, (75950)-Pakistan</div>
+            <div key={i}>
+              <div className="print-copy" style={{ border: '2px solid #000', padding: '6mm', marginBottom: i === 0 ? '6mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '135mm' }}>
+                {/* Header */}
+                <div style={{ borderBottom: '0px solid transparent', paddingBottom: '4px', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                    <div style={{ width: 80, height: 80, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#999' }}>LOGO</div>
+                    <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
+                      <div style={{ fontSize: 18, fontWeight: 700 }}>BOXILLA PACKAGES</div>
+                      <div style={{ fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>&amp; you think it, we can ink it</div>
+                      <div style={{ fontSize: 9, marginTop: 4 }}>Gat #470, Bhangoria Goth, Federal B Industrial Area, (75950)-Pakistan</div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 10 }}>
+                      <div>Contact No # 0312 824 6221</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: 10 }}>
-                    <div>Contact No # 0312 824 6221</div>
+                  <div style={{ textAlign: 'center', borderTop: '2px solid #000', paddingTop: '6px', marginTop: '6px' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>DELIVERY CHALLAN</div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', borderTop: '2px solid #000', paddingTop: '6px', marginTop: '6px' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>DELIVERY CHALLAN</div>
-                </div>
-              </div>
 
-              {/* Details */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '6px 0' }}>
-                <div>
-                  <div><strong>Invoice No:</strong> {challan.challanNumber}</div>
-                  <div><strong>Print Date:</strong> {challan.date}</div>
-                  <div><strong>Vehicle:</strong> {challan.vehicle}</div>
+                {/* Details */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '6px 0' }}>
+                  <div>
+                    <div><strong>Invoice No:</strong> {challan.challanNumber}</div>
+                    <div><strong>Print Date:</strong> {challan.date}</div>
+                    <div><strong>Vehicle:</strong> {challan.vehicle}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div><strong>M/S:</strong> {challan.customerCompany || challan.customerName}</div>
+                    <div><strong>ADDRESS:</strong> {challan.customerAddress || 'N/A'}</div>
+                    <div><strong>P.O.NO.:</strong> {challan.poNumber || 'N/A'}</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div><strong>M/S:</strong> {challan.customerCompany || challan.customerName}</div>
-                  <div><strong>ADDRESS:</strong> {challan.customerAddress || 'N/A'}</div>
-                  <div><strong>P.O.NO.:</strong> {challan.poNumber || 'N/A'}</div>
-                </div>
-              </div>
 
-              {/* Items */}
-              <div style={{ border: '1px solid #000', marginTop: 6 }}>
-                <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left', width: 50 }}>S. NO</th>
-                      <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left' }}>DESCRIPTION</th>
-                      <th style={{ padding: 6, textAlign: 'center', width: 80 }}>QUANTITY</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {challan.items.map((item, idx) => (
-                      <tr key={idx} style={{ borderTop: '1px solid #000' }}>
-                        <td style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'center' }}>{idx + 1}</td>
-                        <td style={{ borderRight: '1px solid #000', padding: 6 }}>{item.description}</td>
-                        <td style={{ padding: 6, textAlign: 'center', fontWeight: 700 }}>{item.qty.toLocaleString()}</td>
+                {/* Items */}
+                <div style={{ border: '1px solid #000', marginTop: 6 }}>
+                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left', width: 50 }}>S. NO</th>
+                        <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left' }}>DESCRIPTION</th>
+                        <th style={{ padding: 6, textAlign: 'center', width: 80 }}>QUANTITY</th>
                       </tr>
-                    ))}
-                    <tr>
-                      <td colSpan={2} style={{ padding: 6 }}></td>
-                      <td style={{ padding: 6, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{challan.totalQuantity.toLocaleString()}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {challan.items.map((item, idx) => (
+                        <tr key={idx} style={{ borderTop: '1px solid #000' }}>
+                          <td style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'center' }}>{idx + 1}</td>
+                          <td style={{ borderRight: '1px solid #000', padding: 6 }}>{item.description}</td>
+                          <td style={{ padding: 6, textAlign: 'center', fontWeight: 700 }}>{item.qty.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td colSpan={2} style={{ padding: 6 }}></td>
+                        <td style={{ padding: 6, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{challan.totalQuantity.toLocaleString()}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer signatures */}
+                <div style={{ display: 'flex', marginTop: 8, fontSize: 11 }}>
+                  <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
+                    <div style={{ marginBottom: 36 }}>Receiver's Name</div>
+                    <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>{challan.receiverName || ''}</div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
+                    <div style={{ marginBottom: 36 }}>Receiver's Signature</div>
+                    <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'center', padding: 6 }}>
+                    <div style={{ marginBottom: 36 }}>Authorize Signature</div>
+                    <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
+                  </div>
+                </div>
+
               </div>
 
-              {/* Footer signatures */}
-              <div style={{ display: 'flex', marginTop: 8, fontSize: 11 }}>
-                <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
-                  <div style={{ marginBottom: 36 }}>Receiver's Name</div>
-                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>{challan.receiverName || ''}</div>
+              {i === 0 && (
+                <div className="tear-line" aria-hidden>
+                  <span>— Tear Here —</span>
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
-                  <div style={{ marginBottom: 36 }}>Receiver's Signature</div>
-                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
-                </div>
-                <div style={{ flex: 1, textAlign: 'center', padding: 6 }}>
-                  <div style={{ marginBottom: 36 }}>Authorize Signature</div>
-                  <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
-                </div>
-              </div>
-
+              )}
             </div>
           ))}
         </div>
