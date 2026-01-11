@@ -56,6 +56,7 @@ export default function CustomerLedgerPage(): JSX.Element {
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [openingBalance, setOpeningBalance] = useState<number>(0);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // Filters
   const [fromDate, setFromDate] = useState<string>("");
@@ -313,11 +314,16 @@ export default function CustomerLedgerPage(): JSX.Element {
   ----------------------------------------------*/
   const handlePrint = () => window.print();
 
-  const handlePDF = () => {
+  const handlePDF = async () => {
     const fileName = `ledger-${(customer?.name ?? "customer")
       .toString()
       .replace(/\s+/g, "_")}.pdf`;
-    generatePDF("pdf-area", fileName);
+    setGeneratingPDF(true);
+    try {
+      await generatePDF("pdf-area", fileName);
+    } finally {
+      setGeneratingPDF(false);
+    }
   };
 
   /* ---------------------------------------------
@@ -375,9 +381,10 @@ export default function CustomerLedgerPage(): JSX.Element {
             {/* Download PDF */}
             <button
               onClick={handlePDF}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={generatingPDF}
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Download PDF
+              {generatingPDF ? "Generating..." : "Download PDF"}
             </button>
           </div>
       </div>

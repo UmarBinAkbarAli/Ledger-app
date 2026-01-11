@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the file path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to validate image file type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Helper function to validate file size (max 1MB)
+    function isValidSize() {
+      return request.resource.size < 1 * 1024 * 1024;
+    }
+    
+    // ============================================
+    // USER FILES (logos, profile images, etc.)
+    // ============================================
+    match /users/{userId}/{allPaths=**} {
+      // Allow users to read their own files
+      allow read: if isOwner(userId);
+      
+      // Allow users to upload their own files (images only, max 1MB)
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      
+      // Allow users to delete their own files
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================
+    // PUBLIC FILES (optional - for public assets)
+    // ============================================
+    match /public/{allPaths=**} {
+      allow read: if true; // Anyone can read public files
+      allow write: if isAuthenticated(); // Only authenticated users can upload
+    }
+    
+    // Deny all other access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -6,6 +6,8 @@ import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { generatePDF } from "@/app/utils/pdfGenerator";
+import CompanyHeader from "@/components/CompanyHeader";
+import PrintableChallanHeader from "@/components/PrintableChallanHeader";
 
 interface ChallanItem {
   description: string;
@@ -35,6 +37,7 @@ export default function ViewChallanPage() {
 
   const [challan, setChallan] = useState<ChallanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     loadChallan();
@@ -165,11 +168,19 @@ export default function ViewChallanPage() {
 
             {/* Download 2-up PDF */}
             <button
-              onClick={() => generatePDF('pdf-area', `challan-${challan.challanNumber || challanId}.pdf`, { copies: 2 })}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+              onClick={async () => {
+                setGeneratingPDF(true);
+                try {
+                  await generatePDF('pdf-area', `challan-${challan.challanNumber || challanId}.pdf`, { copies: 2 });
+                } finally {
+                  setGeneratingPDF(false);
+                }
+              }}
+              disabled={generatingPDF}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-[20px]">download</span>
-              Download PDF
+              {generatingPDF ? "Generating..." : "Download PDF"}
             </button>
 
             <button
@@ -203,24 +214,7 @@ export default function ViewChallanPage() {
       <div id="pdf-area" className="max-w-4xl mx-auto bg-white p-8 print:p-0 my-6 print:my-0 shadow-lg print:shadow-none print:hidden">
         {/* Header */}
         <div className="border-2 border-black p-4 mb-0">
-          <div className="flex items-start justify-between mb-2">
-            {/* Logo placeholder */}
-            <div className="w-20 h-20 border border-gray-300 flex items-center justify-center text-xs text-gray-400">
-              LOGO
-            </div>
-            
-            {/* Company Info */}
-            <div className="flex-1 text-center px-4">
-              <h1 className="text-3xl font-bold mb-1">BOXILLA PACKAGES</h1>
-              <p className="text-sm italic mb-2">&amp; you think it, we can ink it</p>
-              <p className="text-xs">Gat #470, Bhangoria Goth, Federal B Industrial Area, (75950)-Pakistan</p>
-            </div>
-
-            {/* Contact */}
-            <div className="text-right text-xs">
-              <p>Contact No # 0312 824 6221</p>
-            </div>
-          </div>
+          <CompanyHeader variant="challan" />
 
           {/* Title */}
           <div className="text-center border-t-2 border-black pt-2 mt-2">
@@ -300,20 +294,7 @@ export default function ViewChallanPage() {
               <div className="print-copy" style={{ border: '2px solid #000', padding: '6mm', marginBottom: i === 0 ? '6mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '135mm' }}>
                 {/* Header */}
                 <div style={{ borderBottom: '0px solid transparent', paddingBottom: '4px', marginBottom: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                    <div style={{ width: 80, height: 80, border: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#999' }}>LOGO</div>
-                    <div style={{ flex: 1, textAlign: 'center', padding: '0 8px' }}>
-                      <div style={{ fontSize: 18, fontWeight: 700 }}>BOXILLA PACKAGES</div>
-                      <div style={{ fontSize: 10, fontStyle: 'italic', marginTop: 4 }}>&amp; you think it, we can ink it</div>
-                      <div style={{ fontSize: 9, marginTop: 4 }}>Gat #470, Bhangoria Goth, Federal B Industrial Area, (75950)-Pakistan</div>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 10 }}>
-                      <div>Contact No # 0312 824 6221</div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center', borderTop: '2px solid #000', paddingTop: '6px', marginTop: '6px' }}>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>DELIVERY CHALLAN</div>
-                  </div>
+                  <PrintableChallanHeader />
                 </div>
 
                 {/* Details */}

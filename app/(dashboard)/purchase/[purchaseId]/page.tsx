@@ -12,6 +12,7 @@ export default function PurchaseDetailsPage() {
   const { purchaseId } = useParams();
   const [purchase, setPurchase] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const router = useRouter();
 
 
@@ -174,15 +175,21 @@ export default function PurchaseDetailsPage() {
         </button>
 
         <button
-          onClick={() =>
-            generatePDF(
-              "pdf-area",
-              `purchase-${purchase.billNumber || purchaseId}.pdf`
-            )
-          }
-          className="print:hidden px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={async () => {
+            setGeneratingPDF(true);
+            try {
+              await generatePDF(
+                "pdf-area",
+                `purchase-${purchase.billNumber || purchaseId}.pdf`
+              );
+            } finally {
+              setGeneratingPDF(false);
+            }
+          }}
+          disabled={generatingPDF}
+          className="print:hidden px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Download PDF
+          {generatingPDF ? "Generating..." : "Download PDF"}
         </button>
       </div>
     </div>

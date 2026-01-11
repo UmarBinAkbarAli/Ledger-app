@@ -1,26 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  QueryDocumentSnapshot,
-  DocumentData,
-} from "firebase/firestore";
 import { doc, deleteDoc } from "firebase/firestore";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { FormAlert } from "@/components/FormAlert";
 
 type Sale = {
   id: string;
   customerId: string;
   customerName: string;
-  customerCompany?: string;   // ✅ ADD
+  customerCompany?: string;
   billNumber: string;
   date: string;
   total: number;
@@ -28,139 +19,97 @@ type Sale = {
   createdAt: any;
 };
 
-
-const ITEMS_PER_PAGE = 20; // ✅ NEW: Define page size
+// User-friendly error messages
+const getErrorMessage = (error: any): string => {
+  if (error?.code === "permission-denied") return "You don't have permission to delete this sale.";
+  if (error?.code === "not-found") return "Sale not found. It may have been already deleted.";
+  if (error?.code === "aborted") return "Operation cancelled. Please try again.";
+  if (error?.message?.includes("Payment")) return error.message;
+  return "Failed to delete sale. Please try again.";
+};
 
 export default function SalesListPage() {
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false); // ✅ NEW: Loading state for "Load More" button
-  const [error, setError] = useState("");
+  // Memoize transform function to prevent infinite refetches
+  const dataTransform = useCallback((data: any, id: string): Sale => ({
+    id,
+    customerId: data.customerId || "",
+    customerName: data.customerName || "",
+    customerCompany: data.customerCompany,
+    billNumber: data.billNumber || "",
+    date: data.date || "",
+    total: Number(data.total || 0),
+    paidAmount: Number(data.paidAmount || 0),
+    createdAt: data.createdAt,
+  }), []);
 
-  // ✅ NEW: Track the last document to know where to start fetching the next page
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [hasMore, setHasMore] = useState(true); // ✅ NEW: Check if database has more data
+  // Pagination hook
+  const [{ items: sales, loading, loadingMore, hasMore, error: paginationError }, { loadMore }] = 
+    usePaginatedQuery<Sale>({
+      collectionName: "sales",
+      orderByField: "createdAt",
+      orderDirection: "desc",
+      dataTransform,
+    });
+
+  const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [displaySales, setDisplaySales] = useState<Sale[]>([]);
+
+  // Sync paginated items to display on change
+  useEffect(() => {
+    setDisplaySales(sales);
+  }, [sales]);
 
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-/* ---------------------- LOAD SALES FUNCTION ------------------------ */
-  const fetchSales = async (isNextPage = false) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setError("Not logged in");
-        setLoading(false);
-        return;
-      }
-
-      if (isNextPage) setLoadingMore(true);
-      else setLoading(true);
-
-      const salesRef = collection(db, "sales");
-
-      // Construct Query with Pagination
-      let q;
-      if (isNextPage && lastDoc) {
-        // Fetch NEXT page (start after the last document we saw)
-        q = query(
-          salesRef,
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          startAfter(lastDoc),
-          limit(ITEMS_PER_PAGE)
-        );
-      } else {
-        // Fetch FIRST page
-        q = query(
-          salesRef,
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          limit(ITEMS_PER_PAGE)
-        );
-      }
-
-      const snap = await getDocs(q);
-
-      // Check if we have more data
-      if (snap.empty) {
-        setHasMore(false);
-        if (isNextPage) setLoadingMore(false);
-        else setLoading(false);
-        return;
-      }
-
-      // Update lastDoc for next fetch
-      setLastDoc(snap.docs[snap.docs.length - 1]);
-      
-      // If we fetched fewer than limit, it means we reached the end
-      if (snap.docs.length < ITEMS_PER_PAGE) {
-        setHasMore(false);
-      }
-
-      const list: Sale[] = snap.docs.map((d) => {
-        const dd: any = d.data();
-        return {
-          id: d.id,
-          customerId: dd.customerId || "",
-          customerName: dd.customerName || "",
-          customerCompany: dd.customerCompany || "",
-          billNumber: dd.billNumber || "",
-          date: dd.date || "",
-          total: Number(dd.total || 0),
-          paidAmount: Number(dd.paidAmount || 0),
-          createdAt: dd.createdAt || null,
-        };
-      });
-
-      // Append new data to existing list instead of overwriting
-      if (isNextPage) {
-        setSales((prev) => [...prev, ...list]);
-      } else {
-        setSales(list);
-      }
-
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load sales");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  /* ---------------------- INITIAL LOAD ------------------------ */
-  useEffect(() => {
-    fetchSales(false);
-  }, []);
-
-  /* ---------------------- DELETE SALE ------------------------ */
+  /* ---------------------- DELETE SALE (with Optimistic Update & Rollback) ------------------------ */
   const handleDeleteSale = async (sale: Sale) => {
     if (!confirm("Delete this sale?")) return;
 
     if (sale.paidAmount > 0) {
-      alert("Cannot delete: Payment already received. Delete income first.");
+      setError("Cannot delete: Payment already received. Delete income first.");
       return;
     }
 
+    // ✅ Store the current list in case we need to rollback
+    const previousSales = displaySales;
+    
     try {
+      // ✅ Optimistic update: remove from UI immediately
+      setDeletingId(sale.id);
+      setDisplaySales((prev) => prev.filter((x) => x.id !== sale.id));
+      setError("");
+
+      // ✅ Delete from Firestore
       await deleteDoc(doc(db, "sales", sale.id));
-      setSales((prev) => prev.filter((x) => x.id !== sale.id));
-      alert("Sale deleted");
-    } catch (err) {
+      
+      setDeletingId(null);
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to delete");
+      // ✅ Rollback: restore the sale if deletion failed
+      setDisplaySales(previousSales);
+      setDeletingId(null);
+      setError(getErrorMessage(err));
     }
   };
 
   if (loading) return <p className="p-6">Loading...</p>;
-  if (error) return <p className="p-6 text-red-600">{error}</p>;
-
 
   /* ---------------------- UI ------------------------ */
   return (
     <div className="p-6">
+
+      {/* Error Display */}
+      {error && (
+        <FormAlert
+          type="error"
+          message={error}
+          onClose={() => setError("")}
+          closeable
+        />
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Sales</h1>
 
@@ -203,7 +152,7 @@ export default function SalesListPage() {
           </thead>
 
           <tbody>
-            {sales
+            {displaySales
               .filter((s) => {
                 const q = search.toLowerCase();
 
@@ -261,9 +210,10 @@ export default function SalesListPage() {
 
                         <button
                           onClick={() => handleDeleteSale(s)}
-                          className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                          disabled={deletingId === s.id}
+                          className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Delete
+                          {deletingId === s.id ? "Deleting..." : "Delete"}
                         </button>
                       </div>
                     </td>
@@ -276,7 +226,7 @@ export default function SalesListPage() {
       {hasMore && (
         <div className="mt-6 text-center">
           <button
-            onClick={() => fetchSales(true)}
+            onClick={loadMore}
             disabled={loadingMore}
             className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
           >

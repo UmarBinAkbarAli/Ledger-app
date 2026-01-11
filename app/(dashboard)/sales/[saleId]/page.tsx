@@ -6,12 +6,14 @@ import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { generatePDF } from "@/app/utils/pdfGenerator";
 import ShareButton from "@/components/ShareButton";
+import CompanyHeader from "@/components/CompanyHeader";
 import Link from "next/link";
 
 export default function SaleInvoicePage() {
   const { saleId } = useParams();
   const [sale, setSale] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (!saleId) return;
@@ -65,10 +67,18 @@ export default function SaleInvoicePage() {
         </button>
 
         <button
-          onClick={() => generatePDF("pdf-area", `invoice-${sale.billNumber || saleId}.pdf`)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={async () => {
+            setGeneratingPDF(true);
+            try {
+              await generatePDF("pdf-area", `invoice-${sale.billNumber || saleId}.pdf`);
+            } finally {
+              setGeneratingPDF(false);
+            }
+          }}
+          disabled={generatingPDF}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Download PDF
+          {generatingPDF ? "Generating..." : "Download PDF"}
         </button>
       </div>
 
@@ -78,14 +88,7 @@ export default function SaleInvoicePage() {
 
           {/* Header: logo + company */}
           <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <img src="/boxilla-logo.png" alt="Boxilla" style={{ width: 160, height: "auto" }} />
-              <div className="pl-2">
-                <h2 className="text-xl font-bold text-gray-800">Boxilla Packages</h2>
-                <div className="text-sm text-gray-600">Plot # 470, Bhangoria Goth, Federal B. Industrial Area, Karachi (75950)-Pakistan</div>
-                <div className="text-sm text-gray-600">Phone: 0312-8246221</div>
-              </div>
-            </div>
+            <CompanyHeader variant="invoice" logoWidth={160} />
 
             <div className="w-48">
               <div className="bg-blue-900 text-Black text-sm px-3 py-2 font-semibold text-right">INVOICE</div>

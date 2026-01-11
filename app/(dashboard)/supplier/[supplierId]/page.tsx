@@ -55,6 +55,7 @@ export default function SupplierLedgerPage() {
   const [payments, setPayments] = useState<ExpenseDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [search, setSearch] = useState<string>("");
@@ -401,7 +402,7 @@ export default function SupplierLedgerPage() {
   /* ---------------------------------------------
    PDF DOWNLOAD (MATCH CUSTOMER LEDGER)
 ----------------------------------------------*/
-const handlePDF = () => {
+const handlePDF = async () => {
   const fileName = `ledger-${(
     supplier?.company ||
     supplier?.supplierCompany ||
@@ -411,7 +412,12 @@ const handlePDF = () => {
     .toString()
     .replace(/\s+/g, "_")}.pdf`;
 
-  generatePDF("pdf-area", fileName);
+  setGeneratingPDF(true);
+  try {
+    await generatePDF("pdf-area", fileName);
+  } finally {
+    setGeneratingPDF(false);
+  }
 };
 
 
@@ -460,9 +466,10 @@ const handlePDF = () => {
           {/* Download PDF */}
             <button
               onClick={handlePDF}
-              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={generatingPDF}
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Download PDF
+              {generatingPDF ? "Generating..." : "Download PDF"}
             </button>
         </div>
       </div>

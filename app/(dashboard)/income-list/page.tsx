@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy, 
-  limit,
-  startAfter,
-  QueryDocumentSnapshot, 
-  DocumentData,
-  doc,
-  runTransaction,
-} from "firebase/firestore";
+import { doc, runTransaction } from "firebase/firestore";
+import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
+import { FormAlert } from "@/components/FormAlert";
 
 type IncomeItem = {
   id: string;
@@ -25,126 +15,82 @@ type IncomeItem = {
   date: string;
 };
 
+/* Helper: Map Firebase error codes to user-friendly messages */
+const getErrorMessage = (err: any): string => {
+  const code = err?.code || err?.message || "";
+  if (code.includes("permission-denied")) return "You don't have permission to delete this payment.";
+  if (code.includes("not-found")) return "This payment was already deleted.";
+  if (code.includes("aborted")) return "Operation cancelled. Please try again.";
+  return "Failed to delete this payment. Please try again.";
+};
+
 export default function IncomeListPage() {
-  const [incomeList, setIncomeList] = useState<IncomeItem[]>([]);
+  // Memoize transform function to prevent infinite refetches
+  const dataTransform = useCallback((data: any, id: string): IncomeItem => {
+    let finalDate = "";
+    if (typeof data.date === "string") finalDate = data.date;
+    else if (data.date?.toDate)
+      finalDate = data.date.toDate().toISOString().slice(0, 10);
+    else if (data.createdAt?.toDate)
+      finalDate = data.createdAt.toDate().toISOString().slice(0, 10);
+
+    return {
+      id,
+      customerId: data.customerId || "",
+      customerName: data.customerName || "",
+      amount: Number(data.amount || 0),
+      date: finalDate,
+    };
+  }, []);
+
+  // Pagination hook
+  const [{ items: incomeList, loading, loadingMore, hasMore, error: paginationError }, { loadMore }] = 
+    usePaginatedQuery<IncomeItem>({
+      collectionName: "income",
+      orderByField: "date",
+      orderDirection: "desc",
+      dataTransform,
+    });
+
+  const [displayIncomeList, setDisplayIncomeList] = useState<IncomeItem[]>([]);
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // --- Pagination State ---
-  const ITEMS_PER_PAGE = 20;
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-/* ---------------------------------------------
-     Load Income Records (PAGINATED)
-  ----------------------------------------------*/
-  const fetchIncome = async (isNextPage = false) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setError("Not logged in");
-        setLoading(false);
-        return;
-      }
-
-      if (isNextPage) setLoadingMore(true);
-      else setLoading(true);
-
-      const incomeRef = collection(db, "income");
-      let q;
-
-      if (isNextPage && lastDoc) {
-        q = query(
-          incomeRef,
-          where("userId", "==", user.uid),
-          orderBy("date", "desc"), // Use 'date' field for sorting
-          startAfter(lastDoc),
-          limit(ITEMS_PER_PAGE)
-        );
-      } else {
-        q = query(
-          incomeRef,
-          where("userId", "==", user.uid),
-          orderBy("date", "desc"),
-          limit(ITEMS_PER_PAGE)
-        );
-      }
-
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        setHasMore(false);
-        if (isNextPage) setLoadingMore(false);
-        else setLoading(false);
-        return;
-      }
-
-      setLastDoc(snap.docs[snap.docs.length - 1]);
-      
-      if (snap.docs.length < ITEMS_PER_PAGE) {
-        setHasMore(false);
-      }
-
-      const list: IncomeItem[] = snap.docs.map((d) => {
-        const dd: any = d.data();
-        // Normalize date
-        let finalDate = "";
-        if (typeof dd.date === "string") finalDate = dd.date;
-        else if (dd.date?.toDate)
-          finalDate = dd.date.toDate().toISOString().slice(0, 10);
-        else if (dd.createdAt?.toDate)
-          finalDate = dd.createdAt.toDate().toISOString().slice(0, 10);
-
-        return {
-          id: d.id,
-          customerId: dd.customerId || "",
-          customerName: dd.customerName || "",
-          amount: Number(dd.amount || 0),
-          date: finalDate,
-        };
-      });
-
-      if (isNextPage) {
-        setIncomeList((prev) => [...prev, ...list]);
-      } else {
-        setIncomeList(list);
-      }
-
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load income data.");
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
+  // Sync paginated items to display on change
+  // Sync paginated items to display on change
   useEffect(() => {
-    fetchIncome(false);
-  }, []);
+    setDisplayIncomeList(incomeList);
+  }, [incomeList]);
 
-  /* ---------------------------------------------
-     Delete Income (no sale linking now)
-  ----------------------------------------------*/
+  /* ---------------------- DELETE INCOME (with Optimistic Update & Rollback) ---------------------- */
   const handleDelete = async (income: IncomeItem) => {
     if (!confirm("Are you sure you want to delete this payment?")) return;
 
-    try {
-      const incomeRef = doc(db, "income", income.id);
+    // ✅ Store the current list in case we need to rollback
+    const previousIncomeList = displayIncomeList;
 
+    try {
+      // ✅ Optimistic update: remove from UI immediately
+      setDeletingId(income.id);
+      setDisplayIncomeList((prev) => prev.filter((x) => x.id !== income.id));
+      setError("");
+
+      // ✅ Delete from Firestore
+      const incomeRef = doc(db, "income", income.id);
       await runTransaction(db, async (tx) => {
         tx.delete(incomeRef);
       });
 
-      setIncomeList((prev) => prev.filter((x) => x.id !== income.id));
-      alert("Payment deleted successfully.");
-    } catch (err) {
+      setDeletingId(null);
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to delete income.");
+      // ✅ Rollback: restore the payment if deletion failed
+      setDisplayIncomeList(previousIncomeList);
+      setDeletingId(null);
+      setError(getErrorMessage(err));
     }
   };
 
@@ -162,10 +108,19 @@ export default function IncomeListPage() {
      RENDER
   ----------------------------------------------*/
   if (loading) return <p className="p-6">Loading income...</p>;
-  if (error) return <p className="p-6 text-red-600">{error}</p>;
 
   return (
     <div className="p-6">
+
+      {/* Error Display */}
+      {error && (
+        <FormAlert
+          type="error"
+          message={error}
+          onClose={() => setError("")}
+          closeable
+        />
+      )}
 
       {/* Filters */}
       <div className="flex justify-between items-center mb-4">
@@ -226,7 +181,7 @@ export default function IncomeListPage() {
             </thead>
 
             <tbody>
-              {incomeList
+              {displayIncomeList
                 .filter((i) => {
                   const q = search.toLowerCase();
 
@@ -267,9 +222,10 @@ export default function IncomeListPage() {
 
                       <button
                         onClick={() => handleDelete(i)}
-                        className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                        disabled={deletingId === i.id}
+                        className="text-sm bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Delete
+                        {deletingId === i.id ? "Deleting..." : "Delete"}
                       </button>
                     </td>
                   </tr>
@@ -282,7 +238,7 @@ export default function IncomeListPage() {
       {hasMore && (
         <div className="mt-6 text-center">
           <button
-            onClick={() => fetchIncome(true)}
+            onClick={loadMore}
             disabled={loadingMore}
             className="bg-gray-800 text-white px-6 py-2 rounded shadow hover:bg-gray-700 disabled:opacity-50"
           >
