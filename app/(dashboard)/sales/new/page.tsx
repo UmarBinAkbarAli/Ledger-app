@@ -87,13 +87,44 @@ const challanIdsParam = searchParams.get("challanIds");
   useEffect(() => {
     const loadLastBill = async (userId: string) => {
       try {
-        const q = query(
+        let bizId: string | undefined;
+        try {
+          const userSnap = await getDoc(doc(db, "users", userId));
+          if (userSnap.exists()) {
+            bizId = userSnap.data().businessId;
+          }
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+
+        const byBusiness = bizId
+          ? query(
+              collection(db, "sales"),
+              where("businessId", "==", bizId),
+              orderBy("createdAt", "desc"),
+              limit(1)
+            )
+          : null;
+        const byUser = query(
           collection(db, "sales"),
           where("userId", "==", userId),
           orderBy("createdAt", "desc"),
           limit(1)
         );
-        const snap = await getDocs(q);
+
+        let snap;
+        try {
+          snap = await getDocs(byBusiness || byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied for sales, falling back to userId");
+            snap = await getDocs(byUser);
+            setMessage("Limited view: invoice numbering is based on your own sales only.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
 
         let lastNumber = 0;
         if (!snap.empty) {
@@ -102,8 +133,24 @@ const challanIdsParam = searchParams.get("challanIds");
           const num = parseInt(bill.replace(/\D/g, ""));
           if (!isNaN(num)) lastNumber = num;
         } else {
-          const qAll = query(collection(db, "sales"), where("userId", "==", userId));
-          const snapAll = await getDocs(qAll);
+          const qAll = bizId
+            ? query(collection(db, "sales"), where("businessId", "==", bizId))
+            : query(collection(db, "sales"), where("userId", "==", userId));
+
+          let snapAll;
+          try {
+            snapAll = await getDocs(qAll);
+          } catch (err: any) {
+            if (err?.code === "permission-denied" && bizId) {
+              snapAll = await getDocs(
+                query(collection(db, "sales"), where("userId", "==", userId))
+              );
+              setMessage("Limited view: invoice numbering is based on your own sales only.");
+              setTimeout(() => setMessage(""), 6000);
+            } else {
+              throw err;
+            }
+          }
           snapAll.forEach((d) => {
             const bill = (d.data() as any).billNumber || "";
             const num = parseInt(bill.replace(/\D/g, ""));
@@ -461,6 +508,16 @@ const handleSubmit = async (e: any) => {
       return;
     }
 
+    let bizId: string | undefined;
+    try {
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      if (userSnap.exists()) {
+        bizId = userSnap.data().businessId;
+      }
+    } catch (e) {
+      console.warn("Could not fetch user profile for businessId", e);
+    }
+
     // Validate items
     const validItems = items.filter((it) => it.description.trim() || it.amount > 0);
     if (validItems.length === 0) {
@@ -494,6 +551,7 @@ const handleSubmit = async (e: any) => {
         chNo: customerChNo || "",
         userId: user.uid,
         createdAt: serverTimestamp(),
+        ...(bizId ? { businessId: bizId } : {}),
       };
 
       const newCustRef = await addDoc(collection(db, "customers"), newCustObj);
@@ -529,6 +587,7 @@ const handleSubmit = async (e: any) => {
       userId: user.uid,
       paidAmount: 0,
       createdAt: serverTimestamp(),
+      ...(bizId ? { businessId: bizId } : {}),
     };
 
     // Add challan references only if they exist

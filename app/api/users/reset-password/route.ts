@@ -26,7 +26,7 @@ interface ResetPasswordResponse {
   error?: string;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<ResetPasswordResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     logger.info("📨 POST /api/users/reset-password called");
 

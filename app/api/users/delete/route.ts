@@ -25,7 +25,7 @@ interface DeleteUserResponse {
   error?: string;
 }
 
-export async function DELETE(request: NextRequest): Promise<NextResponse<DeleteUserResponse>> {
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
     logger.info("📨 DELETE /api/users/delete called");
 

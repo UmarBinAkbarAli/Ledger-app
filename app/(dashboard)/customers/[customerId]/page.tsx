@@ -6,6 +6,8 @@ import { auth, db } from "@/lib/firebase";
 import {
   collection,
   getDocs,
+  getDoc,
+  doc,
   query,
   where,
   orderBy,
@@ -57,6 +59,7 @@ export default function CustomerLedgerPage(): JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);
   const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [message, setMessage] = useState<string>("");
 
   // Filters
   const [fromDate, setFromDate] = useState<string>("");
@@ -78,21 +81,39 @@ export default function CustomerLedgerPage(): JSX.Element {
           return;
         }
 
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+
         /* -----------------------------
            LOAD CUSTOMER
         ------------------------------*/
-        const custQ = query(
-          collection(db, "customers"),
-          where("userId", "==", user.uid)
-        );
-        const custSnap: QuerySnapshot = await getDocs(custQ);
-
         let foundCustomer: any = null;
-        custSnap.forEach((d) => {
-          if (d.id === customerId) {
-            foundCustomer = { id: d.id, ...d.data() };
+
+        try {
+          const customerRef = doc(db, "customers", customerId);
+          const customerSnap = await getDoc(customerRef);
+          if (customerSnap.exists()) {
+            foundCustomer = { id: customerSnap.id, ...customerSnap.data() };
           }
-        });
+        } catch (err: any) {
+          if (err?.code === "permission-denied") {
+            const custQ = query(
+              collection(db, "customers"),
+              where("userId", "==", user.uid)
+            );
+            const custSnap: QuerySnapshot = await getDocs(custQ);
+            custSnap.forEach((d) => {
+              if (d.id === customerId) {
+                foundCustomer = { id: d.id, ...d.data() };
+              }
+            });
+
+            setMessage("Limited view: you don't have business-level access for this customer.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
 
         if (mounted) setCustomer(foundCustomer);
         if (!foundCustomer) {
@@ -110,11 +131,24 @@ export default function CustomerLedgerPage(): JSX.Element {
         /* -----------------------------
            LOAD SALES
         ------------------------------*/
-        const salesQ = query(
-          collection(db, "sales"),
-          where("userId", "==", user.uid)
-        );
-        const sSnap = await getDocs(salesQ);
+        const salesQ = bizId
+          ? query(collection(db, "sales"), where("businessId", "==", bizId))
+          : query(collection(db, "sales"), where("userId", "==", user.uid));
+
+        let sSnap: QuerySnapshot;
+        try {
+          sSnap = await getDocs(salesQ);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && bizId) {
+            sSnap = await getDocs(
+              query(collection(db, "sales"), where("userId", "==", user.uid))
+            );
+            setMessage("Limited view: sales are restricted to your own records.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
 
         const allSales: DocumentData[] = [];
         sSnap.forEach((d) => allSales.push({ id: d.id, ...d.data() }));
@@ -135,11 +169,24 @@ export default function CustomerLedgerPage(): JSX.Element {
         /* -----------------------------
            LOAD PAYMENTS
         ------------------------------*/
-        const incQ = query(
-          collection(db, "income"),
-          where("userId", "==", user.uid)
-        );
-        const incSnap = await getDocs(incQ);
+        const incQ = bizId
+          ? query(collection(db, "income"), where("businessId", "==", bizId))
+          : query(collection(db, "income"), where("userId", "==", user.uid));
+
+        let incSnap: QuerySnapshot;
+        try {
+          incSnap = await getDocs(incQ);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && bizId) {
+            incSnap = await getDocs(
+              query(collection(db, "income"), where("userId", "==", user.uid))
+            );
+            setMessage("Limited view: payments are restricted to your own records.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
 
         const allPayments: DocumentData[] = [];
         incSnap.forEach((d) => allPayments.push({ id: d.id, ...d.data() }));
@@ -388,6 +435,12 @@ export default function CustomerLedgerPage(): JSX.Element {
             </button>
           </div>
       </div>
+
+      {message && (
+        <div className="mb-4 text-sm text-yellow-700 bg-yellow-100 px-3 py-2 rounded print:hidden">
+          {message}
+        </div>
+      )}
 
       {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 print:hidden">

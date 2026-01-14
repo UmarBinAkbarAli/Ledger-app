@@ -297,7 +297,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const zipData = zipSync(files);
     const fileName = `${type}_ledgers_${new Date().toISOString().split("T")[0]}.zip`;
 
-    return new NextResponse(zipData, {
+    const zipBuffer = Buffer.from(zipData);
+
+    return new NextResponse(zipBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",

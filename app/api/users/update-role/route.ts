@@ -30,7 +30,7 @@ interface UpdateRoleResponse {
   error?: string;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<UpdateRoleResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     logger.info("📨 POST /api/users/update-role called");
 

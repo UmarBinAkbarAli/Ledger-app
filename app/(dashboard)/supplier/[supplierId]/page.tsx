@@ -12,6 +12,7 @@ import {
   orderBy,
   doc,
   getDoc,
+  QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { Fragment } from "react";
 
@@ -56,6 +57,7 @@ export default function SupplierLedgerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [message, setMessage] = useState("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [search, setSearch] = useState<string>("");
@@ -73,17 +75,6 @@ export default function SupplierLedgerPage() {
           return;
         }
 
-        // load supplier doc
-        const supRef = doc(db, "suppliers", supplierId);
-        const supSnap = await getDoc(supRef);
-        if (!supSnap.exists()) {
-          setError("Supplier not found.");
-          setLoading(false);
-          return;
-        }
-        const supData: any = supSnap.data();
-        setSupplier({ id: supSnap.id, ...supData });
-
         const user = auth.currentUser;
         if (!user) {
           setError("Not authenticated.");
@@ -91,15 +82,80 @@ export default function SupplierLedgerPage() {
           return;
         }
 
-        // --- purchases where supplierId == supplierId
-        const pQ = query(
-          collection(db, "purchases"),
-          where("userId", "==", user.uid),
-          orderBy("date", "asc")
-        );
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
 
-        const pSnap = await getDocs(pQ);
-        const pList: PurchaseDoc[] = pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+        // load supplier doc
+        let supData: any = null;
+        try {
+          const supRef = doc(db, "suppliers", supplierId);
+          const supSnap = await getDoc(supRef);
+          if (supSnap.exists()) {
+            supData = { id: supSnap.id, ...supSnap.data() };
+          }
+        } catch (err: any) {
+          if (err?.code === "permission-denied") {
+            const supQ = query(
+              collection(db, "suppliers"),
+              where("userId", "==", user.uid)
+            );
+            const supSnap = await getDocs(supQ);
+            supSnap.forEach((d) => {
+              if (d.id === supplierId) {
+                supData = { id: d.id, ...d.data() };
+              }
+            });
+
+            setMessage("Limited view: you don't have business-level access for this supplier.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
+
+        if (!supData) {
+          setError("Supplier not found.");
+          setLoading(false);
+          return;
+        }
+        setSupplier(supData);
+
+        // --- purchases where supplierId == supplierId
+        const pQ = bizId
+          ? query(
+              collection(db, "purchases"),
+              where("businessId", "==", bizId),
+              orderBy("date", "asc")
+            )
+          : query(
+              collection(db, "purchases"),
+              where("userId", "==", user.uid),
+              orderBy("date", "asc")
+            );
+
+        let pSnap: any;
+        try {
+          pSnap = await getDocs(pQ);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && bizId) {
+            pSnap = await getDocs(
+              query(
+                collection(db, "purchases"),
+                where("userId", "==", user.uid),
+                orderBy("date", "asc")
+              )
+            );
+            setMessage("Limited view: purchases are restricted to your own records.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
+
+        const pList: PurchaseDoc[] = pSnap.docs.map((d: QueryDocumentSnapshot) => ({
+          id: d.id,
+          ...(d.data() as any),
+        }));
 
         // purchases that match by id OR by supplierName fallback
         const supplierNameNorm = normalize(supData.name || supData.supplierName || supData.name || "");
@@ -112,13 +168,40 @@ export default function SupplierLedgerPage() {
         setPurchases(matchedPurchases);
 
         // --- payments from expenses collection (supplier payments)
-        const exQ = query(
-          collection(db, "expenses"),
-          where("userId", "==", user.uid),
-          orderBy("date", "asc")
-        );
-        const exSnap = await getDocs(exQ);
-        const exList: ExpenseDoc[] = exSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+        const exQ = bizId
+          ? query(
+              collection(db, "expenses"),
+              where("businessId", "==", bizId),
+              orderBy("date", "asc")
+            )
+          : query(
+              collection(db, "expenses"),
+              where("userId", "==", user.uid),
+              orderBy("date", "asc")
+            );
+
+        let exSnap: any;
+        try {
+          exSnap = await getDocs(exQ);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && bizId) {
+            exSnap = await getDocs(
+              query(
+                collection(db, "expenses"),
+                where("userId", "==", user.uid),
+                orderBy("date", "asc")
+              )
+            );
+            setMessage("Limited view: payments are restricted to your own records.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
+        const exList: ExpenseDoc[] = exSnap.docs.map((d: QueryDocumentSnapshot) => ({
+          id: d.id,
+          ...(d.data() as any),
+        }));
 
         const matchedPayments = exList.filter((e) => {
           if (e.supplierId && e.supplierId === supplierId) return true;
@@ -473,6 +556,12 @@ const handlePDF = async () => {
             </button>
         </div>
       </div>
+
+      {message && (
+        <div className="mb-4 text-sm text-yellow-700 bg-yellow-100 px-3 py-2 rounded print:hidden">
+          {message}
+        </div>
+      )}
 
       {/* Filters row (copy of customer ledger style) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">

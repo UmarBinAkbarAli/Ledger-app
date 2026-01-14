@@ -10,7 +10,9 @@ function getClientIp(request: NextRequest): string {
     const ip = forwarded.split(",")[0]?.trim();
     if (ip) return ip;
   }
-  return request.ip ?? "unknown";
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  return "unknown";
 }
 
 export async function applyRateLimit(
