@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp
+  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, getDoc
 } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
+import { useBusiness } from "@/hooks/useBusiness";
 
 export default function PettyCashPage() {
   // FIX: Use Pakistan Date by default
   const [selectedDate, setSelectedDate] = useState(getPakistanDate());
+  const { businessId, loading: businessLoading } = useBusiness();
   
   const [cashIn, setCashIn] = useState(0);       
   const [cashOut, setCashOut] = useState(0);     
@@ -27,23 +29,55 @@ export default function PettyCashPage() {
   const [openingInput, setOpeningInput] = useState("");
   const [openingInputDate, setOpeningInputDate] = useState(getPakistanDate()); // FIX HERE TOO
 
+  const buildScopeClauses = (userId: string) =>
+    businessId
+      ? [where("businessId", "==", businessId)]
+      : [where("userId", "==", userId), where("businessId", "==", null)];
+
   // 1. CHECK & LOAD INITIAL OPENING BALANCE
   useEffect(() => {
     const checkOpening = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      const snap = await getDocs(query(collection(db, "pettyCashOpening"), where("userId", "==", user.uid)));
-      
-      if (!snap.empty) {
-        setOpeningExists(true);
-        const docData = snap.docs[0].data();
-        setInitialOpening(Number(docData.openingBalance || 0));
-        setOpeningDate(docData.openingDate);
-        setOpeningDocId(snap.docs[0].id);
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        if (businessLoading) return;
+        let snap;
+        try {
+          snap = await getDocs(
+            query(collection(db, "pettyCashOpening"), ...buildScopeClauses(user.uid))
+          );
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && businessId) {
+            console.warn("Business-scoped query denied; retrying with userId scope", {
+              collectionName: "pettyCashOpening",
+              userId: user.uid,
+              businessId,
+            });
+            snap = await getDocs(
+              query(
+                collection(db, "pettyCashOpening"),
+                where("userId", "==", user.uid),
+                where("businessId", "==", null)
+              )
+            );
+          } else {
+            throw err;
+          }
+        }
+        
+        if (!snap.empty) {
+          setOpeningExists(true);
+          const docData = snap.docs[0].data();
+          setInitialOpening(Number(docData.openingBalance || 0));
+          setOpeningDate(docData.openingDate);
+          setOpeningDocId(snap.docs[0].id);
+        }
+      } catch (err) {
+        console.error("Error checking opening balance:", err);
       }
     };
     checkOpening();
-  }, []);
+  }, [businessId, businessLoading]);
 
   // 2. SAVE OR UPDATE OPENING BALANCE
   const saveOpeningBalance = async () => {
@@ -57,18 +91,27 @@ export default function PettyCashPage() {
     try {
       if (openingExists && openingDocId) {
         const docRef = doc(db, "pettyCashOpening", openingDocId);
-        await updateDoc(docRef, {
+        const updatePayload: Record<string, any> = {
           openingBalance: Number(openingInput),
           openingDate: openingInputDate,
+          userId: user.uid,
           updatedAt: serverTimestamp(),
-        });
+        };
+        if (businessId) {
+          updatePayload.businessId = businessId;
+        }
+        await updateDoc(docRef, updatePayload);
       } else {
-        await addDoc(collection(db, "pettyCashOpening"), {
+        const createPayload: Record<string, any> = {
           userId: user.uid,
           openingBalance: Number(openingInput),
           openingDate: openingInputDate,
           createdAt: serverTimestamp(),
-        });
+        };
+        if (businessId) {
+          createPayload.businessId = businessId;
+        }
+        await addDoc(collection(db, "pettyCashOpening"), createPayload);
       }
       window.location.reload(); 
     } catch (err) {
@@ -82,6 +125,7 @@ export default function PettyCashPage() {
     const calculateOpening = async () => {
       const user = auth.currentUser;
       if (!user) return;
+      if (businessLoading) return;
 
       if (!openingDate || selectedDate < openingDate) {
         setOpeningBalance(initialOpening || 0);
@@ -93,15 +137,37 @@ export default function PettyCashPage() {
         return;
       }
 
-      const qIncome = query(collection(db, "income"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-      const qExpense = query(collection(db, "expenses"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-      const qOpExpense = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-      const qTransIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
-      const qTransOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+      let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
+      try {
+        const qIncome = query(collection(db, "income"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("toAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("fromAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
 
-      const [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
-        getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
-      ]);
+        [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+          getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
+        ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "pettyCashHistory",
+            userId: user.uid,
+            businessId,
+          });
+          const qIncome = query(collection(db, "income"), where("userId", "==", user.uid), where("businessId", "==", null), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+          const qExpense = query(collection(db, "expenses"), where("userId", "==", user.uid), where("businessId", "==", null), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+          const qOpExpense = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("businessId", "==", null), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+          const qTransIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("businessId", "==", null), where("toAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+          const qTransOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("businessId", "==", null), where("fromAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+
+          [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+            getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
+          ]);
+        } else {
+          throw err;
+        }
+      }
 
       const sum = (snap: any) => snap.docs.reduce((acc: number, d: any) => acc + Number((d.data() as any).amount || 0), 0);
 
@@ -109,7 +175,7 @@ export default function PettyCashPage() {
       setOpeningBalance(initialOpening + netHistory);
     };
     calculateOpening();
-  }, [selectedDate, openingDate, initialOpening]);
+  }, [selectedDate, openingDate, initialOpening, businessId, businessLoading]);
 
   // 4. LOAD TODAY'S TRANSACTIONS
   useEffect(() => {
@@ -117,16 +183,39 @@ export default function PettyCashPage() {
       setLoading(true);
       const user = auth.currentUser;
       if (!user) return;
+      if (businessLoading) return;
 
-      const qIncome = query(collection(db, "income"), where("userId", "==", user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-      const qExpense = query(collection(db, "expenses"), where("userId", "==", user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-      const qOpExpense = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-      const qTransIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("date", "==", selectedDate), where("toAccount", "==", "Petty Cash"));
-      const qTransOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("date", "==", selectedDate), where("fromAccount", "==", "Petty Cash"));
+      let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
+      try {
+        const qIncome = query(collection(db, "income"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("toAccount", "==", "Petty Cash"));
+        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("fromAccount", "==", "Petty Cash"));
 
-      const [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
-        getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
-      ]);
+        [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+          getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
+        ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "pettyCashDaily",
+            userId: user.uid,
+            businessId,
+          });
+          const qIncome = query(collection(db, "income"), where("userId", "==", user.uid), where("businessId", "==", null), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+          const qExpense = query(collection(db, "expenses"), where("userId", "==", user.uid), where("businessId", "==", null), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+          const qOpExpense = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("businessId", "==", null), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+          const qTransIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("businessId", "==", null), where("date", "==", selectedDate), where("toAccount", "==", "Petty Cash"));
+          const qTransOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("businessId", "==", null), where("date", "==", selectedDate), where("fromAccount", "==", "Petty Cash"));
+
+          [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+            getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
+          ]);
+        } else {
+          throw err;
+        }
+      }
 
       const sum = (snap: any) => snap.docs.reduce((acc: number, d: any) => acc + Number((d.data() as any).amount || 0), 0);
 
@@ -145,7 +234,7 @@ export default function PettyCashPage() {
       setLoading(false);
     };
     loadDaily();
-  }, [selectedDate]);
+  }, [selectedDate, businessId, businessLoading]);
 
   // 5. CLOSING CALCULATION
   useEffect(() => {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
+import { useBusiness } from "@/hooks/useBusiness";
 import {
   collection,
   getDocs,
@@ -34,12 +35,14 @@ export default function ExpenseListPage() {
 
   // --- Pagination State ---
   const ITEMS_PER_PAGE = 20;
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const { businessId, loading: businessLoading } = useBusiness();
+  const scopeRef = useRef<{ field: "businessId" | "userId"; value: string } | null>(null);
 
 // Defined OUTSIDE useEffect so the button can use it
-  const fetchExpenses = async (isNextPage = false) => {
+  const fetchExpenses = useCallback(async (isNextPage = false) => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -47,33 +50,55 @@ export default function ExpenseListPage() {
         setLoading(false);
         return;
       }
+      if (businessLoading) return;
 
       // Set correct loading state
       if (isNextPage) setLoadingMore(true);
       else setLoading(true);
 
       const expensesRef = collection(db, "expenses");
-      let q;
-
-      // Logic: If 'Load More' clicked, start after lastDoc. Else start from scratch.
-      if (isNextPage && lastDoc) {
-        q = query(
-          expensesRef,
-          where("userId", "==", user.uid),
-          orderBy("date", "desc"),
-          startAfter(lastDoc),
-          limit(ITEMS_PER_PAGE)
-        );
-      } else {
-        q = query(
-          expensesRef,
-          where("userId", "==", user.uid),
-          orderBy("date", "desc"),
-          limit(ITEMS_PER_PAGE)
-        );
+      if (!isNextPage) {
+        lastDocRef.current = null;
+        setHasMore(true);
+        scopeRef.current = null;
       }
 
-      const snap = await getDocs(q);
+      const desiredScope = businessId
+        ? { field: "businessId" as const, value: businessId }
+        : { field: "userId" as const, value: user.uid };
+      let effectiveScope = isNextPage && scopeRef.current ? scopeRef.current : desiredScope;
+      let appendResults = isNextPage;
+
+      const buildQuery = (field: "businessId" | "userId", value: string, last: QueryDocumentSnapshot<DocumentData> | null) =>
+        query(
+          expensesRef,
+          where(field, "==", value),
+          orderBy("date", "desc"),
+          ...(last ? [startAfter(last)] : []),
+          limit(ITEMS_PER_PAGE)
+        );
+
+      let snap;
+      try {
+        const cursor = appendResults ? lastDocRef.current : null;
+        snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, cursor));
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "expenses",
+            userId: user.uid,
+            businessId,
+          });
+          effectiveScope = { field: "userId", value: user.uid };
+          scopeRef.current = effectiveScope;
+          lastDocRef.current = null;
+          appendResults = false;
+          snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, null));
+        } else {
+          throw err;
+        }
+      }
+      scopeRef.current = effectiveScope;
 
       // Handle Empty / End of List
       if (snap.empty) {
@@ -84,7 +109,7 @@ export default function ExpenseListPage() {
       }
 
       // Update Cursor for next time
-      setLastDoc(snap.docs[snap.docs.length - 1]);
+      lastDocRef.current = snap.docs[snap.docs.length - 1];
       
       if (snap.docs.length < ITEMS_PER_PAGE) {
         setHasMore(false);
@@ -104,7 +129,7 @@ export default function ExpenseListPage() {
       });
 
       // Update State
-      if (isNextPage) {
+      if (appendResults) {
         setExpenseList((prev) => [...prev, ...list]);
       } else {
         setExpenseList(list);
@@ -117,12 +142,13 @@ export default function ExpenseListPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [businessId, businessLoading]);
 
   // Now the useEffect is simple: just call the function above
   useEffect(() => {
+    if (businessLoading) return;
     fetchExpenses(false);
-  }, []);
+  }, [businessLoading, businessId, fetchExpenses]);
   
     const handleDelete = async (expense: any) => {
   if (!confirm("Are you sure you want to delete this expense?")) return;

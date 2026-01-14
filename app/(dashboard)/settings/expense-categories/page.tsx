@@ -12,21 +12,45 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { useBusiness } from "@/hooks/useBusiness";
 
 export default function ExpenseCategoriesPage() {
   const [name, setName] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
+  const { businessId, loading: businessLoading } = useBusiness();
 
   const loadCategories = async () => {
     const user = auth.currentUser;
     if (!user) return;
+    if (businessLoading) return;
 
-    const snap = await getDocs(
-      query(
-        collection(db, "expenseCategories"),
-        where("userId", "==", user.uid)
-      )
-    );
+    const scopeField = businessId ? "businessId" : "userId";
+    const scopeValue = businessId || user.uid;
+    let snap;
+    try {
+      snap = await getDocs(
+        query(
+          collection(db, "expenseCategories"),
+          where(scopeField, "==", scopeValue)
+        )
+      );
+    } catch (err: any) {
+      if (err?.code === "permission-denied" && businessId) {
+        console.warn("Business-scoped query denied; retrying with userId scope", {
+          collectionName: "expenseCategories",
+          userId: user.uid,
+          businessId,
+        });
+        snap = await getDocs(
+          query(
+            collection(db, "expenseCategories"),
+            where("userId", "==", user.uid)
+          )
+        );
+      } else {
+        throw err;
+      }
+    }
 
     setCategories(
       snap.docs.map((d) => ({
@@ -38,17 +62,22 @@ export default function ExpenseCategoriesPage() {
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [businessId, businessLoading]);
 
   const addCategory = async () => {
     const user = auth.currentUser;
     if (!user || !name.trim()) return;
+    if (businessLoading) return;
 
-    await addDoc(collection(db, "expenseCategories"), {
+    const createPayload: Record<string, any> = {
       userId: user.uid,
       name: name.trim(),
       createdAt: serverTimestamp(),
-    });
+    };
+    if (businessId) {
+      createPayload.businessId = businessId;
+    }
+    await addDoc(collection(db, "expenseCategories"), createPayload);
 
     setName("");
     loadCategories();

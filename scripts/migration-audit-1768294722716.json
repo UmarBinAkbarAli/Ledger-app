@@ -1,0 +1,44 @@
+[
+  {
+    "timestamp": "2026-01-13T08:58:41.310Z",
+    "action": "WOULD_CREATE_BUSINESS",
+    "businessId": "business_VXVWLmLV",
+    "ownerId": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "name": "Business VXVWLmLV"
+  },
+  {
+    "timestamp": "2026-01-13T08:58:41.310Z",
+    "action": "WOULD_UPDATE_USER",
+    "userId": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "businessId": "business_VXVWLmLV",
+    "isOwner": true
+  },
+  {
+    "timestamp": "2026-01-13T08:58:42.362Z",
+    "action": "WOULD_CREATE_BUSINESS",
+    "businessId": "business_koRVaIXD",
+    "ownerId": "koRVaIXDuxXGxrDZJbbruR4unCi1",
+    "name": "Business koRVaIXD"
+  },
+  {
+    "timestamp": "2026-01-13T08:58:42.362Z",
+    "action": "WOULD_UPDATE_USER",
+    "userId": "koRVaIXDuxXGxrDZJbbruR4unCi1",
+    "businessId": "business_koRVaIXD",
+    "isOwner": true
+  },
+  {
+    "timestamp": "2026-01-13T08:58:42.714Z",
+    "action": "WOULD_UPDATE_USER",
+    "userId": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "businessId": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "isOwner": false
+  },
+  {
+    "timestamp": "2026-01-13T08:58:42.714Z",
+    "action": "WOULD_UPDATE_USER",
+    "userId": "rz9BnC7jA9RsBQ7xnWFFb9x7q1n1",
+    "businessId": "business_VXVWLmLV",
+    "isOwner": false
+  }
+]

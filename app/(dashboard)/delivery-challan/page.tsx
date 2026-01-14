@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, deleteDoc, doc, orderBy } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, deleteDoc, orderBy } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -22,17 +22,51 @@ export default function DeliveryChallanListPage() {
   const [challans, setChallans] = useState<Challan[]>([]);
   const [filteredChallans, setFilteredChallans] = useState<Challan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
+  const [info, setInfo] = useState("");
 
   useEffect(() => {
     loadChallans();
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     filterChallans();
   }, [search, statusFilter, challans]);
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+          const tokenResult = await user.getIdTokenResult(true);
+          console.log("Delivery challan debug:", {
+            uid: user.uid,
+            email: user.email,
+            claims: tokenResult.claims,
+            businessId,
+          });
+        } catch (err) {
+          console.warn("Delivery challan debug failed to load token claims:", err);
+        }
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        setBusinessId(bizId);
+      } catch (err: any) {
+        // Handle permission errors gracefully and avoid uncaught rejects
+        if (err?.code === "permission-denied") {
+          console.warn("Permission denied reading user profile; falling back to legacy user isolation", { authedUser: auth.currentUser?.uid, message: err.message });
+          setBusinessId(null);
+          return;
+        }
+        console.error("Error fetching business profile:", err);
+      }
+    };
+    fetchBusiness();
+  }, []);
 
   const loadChallans = async () => {
     const user = auth.currentUser;
@@ -40,12 +74,38 @@ export default function DeliveryChallanListPage() {
 
     setLoading(true);
     try {
-      const q = query(
+      const byBusiness = businessId
+        ? query(
+            collection(db, "deliveryChallans"),
+            where("businessId", "==", businessId),
+            orderBy("date", "desc")
+          )
+        : null;
+      const byUser = query(
         collection(db, "deliveryChallans"),
         where("userId", "==", user.uid),
+        where("businessId", "==", null),
         orderBy("date", "desc")
       );
-      const snap = await getDocs(q);
+
+      // Prefer business scope; if denied (e.g., mismatched tenant), retry with userId fallback to avoid noisy errors.
+      let snap;
+      try {
+        snap = byBusiness ? await getDocs(byBusiness) : await getDocs(byUser);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && byBusiness) {
+          console.warn("Business scope denied; retrying with userId scope", {
+            authedUser: user.uid,
+            businessId,
+          });
+          snap = await getDocs(byUser);
+
+          setInfo("Limited view: only your personal challans are shown because your account lacks business-level read access.");
+          setTimeout(() => setInfo(""), 6000);
+        } else {
+          throw err;
+        }
+      }
 
       const list: Challan[] = snap.docs.map((d) => {
         const data = d.data();
@@ -62,8 +122,15 @@ export default function DeliveryChallanListPage() {
       });
 
       setChallans(list);
-    } catch (error) {
-      console.error("Error loading challans:", error);
+    } catch (error: any) {
+      // Avoid noisy empty-object logs; log only when an actual error is present
+      if (!error) return;
+      console.error("Error loading challans", {
+        code: error?.code ?? "unknown",
+        message: error?.message ?? String(error),
+        authedUser: user?.uid,
+        businessId,
+      });
     } finally {
       setLoading(false);
     }
@@ -159,6 +226,9 @@ export default function DeliveryChallanListPage() {
     <div className="p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-2xl font-bold text-text-primary">Delivery Challans</h1>
+        {info && (
+          <div className="ml-4 text-sm text-yellow-700 bg-yellow-100 px-3 py-1 rounded">{info}</div>
+        )}
         <div className="flex gap-3">
           {selectedChallanIds.length > 0 && (
             <button
@@ -299,4 +369,3 @@ export default function DeliveryChallanListPage() {
     </div>
   );
 }
-

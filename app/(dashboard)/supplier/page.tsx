@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, getDoc, doc } from "firebase/firestore";
 
 interface SupplierType {
   id: string;
@@ -21,36 +21,61 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
 
   const loadSuppliers = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-        console.log('🔄 Loading suppliers data...');
-        const startTime = performance.now();
+      setMessage("");
+      console.log('🔄 Loading suppliers data...');
+      const startTime = performance.now();
 
+      // Fetch user profile to get businessId
+      let bizId: string | undefined;
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          bizId = userSnap.data().businessId;
+        }
+      } catch (err) {
+        console.warn("Could not fetch user profile for businessId", err);
+      }
+
+      // Build queries - prefer business scope, fallback to userId
+      const suppliersByBiz = bizId ? query(collection(db, "suppliers"), where("businessId", "==", bizId)) : null;
+      const suppliersByUser = query(collection(db, "suppliers"), where("userId", "==", user.uid));
+      const purchasesByBiz = bizId ? query(collection(db, "purchases"), where("businessId", "==", bizId)) : null;
+      const purchasesByUser = query(collection(db, "purchases"), where("userId", "==", user.uid));
+      const expensesByBiz = bizId ? query(collection(db, "expenses"), where("businessId", "==", bizId)) : null;
+      const expensesByUser = query(collection(db, "expenses"), where("userId", "==", user.uid));
+
+      let suppliersSnap, allPurchasesSnap, allExpensesSnap;
+      let usedFallback = false;
+
+      try {
         // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
-        const [suppliersSnap, allPurchasesSnap, allExpensesSnap] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "suppliers"),
-              where("userId", "==", user.uid)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "purchases"),
-              where("userId", "==", user.uid)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "expenses"),
-              where("userId", "==", user.uid)
-            )
-          )
+        [suppliersSnap, allPurchasesSnap, allExpensesSnap] = await Promise.all([
+          getDocs(suppliersByBiz || suppliersByUser),
+          getDocs(purchasesByBiz || purchasesByUser),
+          getDocs(expensesByBiz || expensesByUser)
         ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && bizId) {
+          console.warn("Business-scoped query denied, falling back to userId", { bizId, userId: user.uid });
+          usedFallback = true;
+          [suppliersSnap, allPurchasesSnap, allExpensesSnap] = await Promise.all([
+            getDocs(suppliersByUser),
+            getDocs(purchasesByUser),
+            getDocs(expensesByUser)
+          ]);
+          setMessage("Limited view: showing only your own data.");
+          setTimeout(() => setMessage(""), 4000);
+        } else {
+          throw err;
+        }
+      }
 
         console.log(`✅ Data loaded in ${(performance.now() - startTime).toFixed(0)}ms`);
         console.log(`📊 Suppliers: ${suppliersSnap.size}, Purchases: ${allPurchasesSnap.size}, Expenses: ${allExpensesSnap.size}`);
@@ -140,6 +165,13 @@ export default function SuppliersPage() {
           + Add Supplier
         </Link>
       </div>
+
+      {/* Info Message */}
+      {message && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded">
+          {message}
+        </div>
+      )}
 
       {/* Search */}
       <div className="mb-4">

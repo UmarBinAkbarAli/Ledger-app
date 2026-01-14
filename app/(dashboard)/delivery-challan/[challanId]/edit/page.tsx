@@ -50,23 +50,32 @@ export default function EditDeliveryChallanPage() {
   // Load customers
   useEffect(() => {
     const loadCustomers = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-      const q = query(
-        collection(db, "customers"),
-        where("userId", "==", user.uid)
-      );
-      const snap = await getDocs(q);
+        const q = query(
+          collection(db, "customers"),
+          where("userId", "==", user.uid)
+        );
+        const snap = await getDocs(q);
 
-      const list: Customer[] = snap.docs.map((d) => ({
-        id: d.id,
-        name: d.data().name || "",
-        company: d.data().company || "",
-        address: d.data().address || "",
-      }));
+        const list: Customer[] = snap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name || "",
+          company: d.data().company || "",
+          address: d.data().address || "",
+        }));
 
-      setCustomers(list);
+        setCustomers(list);
+      } catch (err: any) {
+        if (err?.code === "permission-denied") {
+          console.warn("Permission denied loading customers; falling back to empty list", { authedUser: auth.currentUser?.uid, message: err.message });
+          setCustomers([]);
+          return;
+        }
+        console.error("Error loading customers:", err);
+      }
     };
 
     loadCustomers();

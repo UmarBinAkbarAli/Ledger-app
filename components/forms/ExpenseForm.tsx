@@ -44,13 +44,17 @@ export default function ExpenseForm({
   if (!user) return;
 
   const loadCategories = async () => {
-    const snap = await getDocs(
-      query(
-        collection(db, "expenseCategories"),
-        where("userId", "==", user.uid)
-      )
-    );
-    setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "expenseCategories"),
+          where("userId", "==", user.uid)
+        )
+      );
+      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error("Error loading expense categories:", err);
+    }
   };
 
   loadCategories();
@@ -58,17 +62,21 @@ export default function ExpenseForm({
 
   useEffect(() => {
     const loadSuppliers = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-      const snap = await getDocs(
-        query(
-          collection(db, "suppliers"),
-          where("userId", "==", user.uid)
-        )
-      );
+        const snap = await getDocs(
+          query(
+            collection(db, "suppliers"),
+            where("userId", "==", user.uid)
+          )
+        );
 
-      setSuppliers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setSuppliers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error("Error loading suppliers:", err);
+      }
     };
 
     loadSuppliers();

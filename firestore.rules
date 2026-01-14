@@ -1,170 +1,226 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if user is authenticated
+
+    // ======================================================
+    // AUTH HELPERS
+    // ======================================================
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper function to check if user owns the document
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+
+    function userId() {
+      return request.auth.uid;
     }
-    
-    // Helper function to check if user is admin
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(userId())).data;
+    }
+
+    function userBusinessId() {
+      return userDoc().businessId;
+    }
+
+    function userRole() {
+      return userDoc().role;
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && userRole() == 'admin';
     }
-    
-    // ============================================
-    // USERS COLLECTION
-    // ============================================
-    match /users/{userId} {
-      // Users can read their own document
-      allow read: if isOwner(userId);
-      
-      // Users can create their own document on signup
-      allow create: if isOwner(userId);
-      
-      // Users can update their own document (but not change role unless admin)
-      allow update: if isOwner(userId) && 
-                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) || isAdmin());
-      
-      // Only admins can delete users
-      allow delete: if isAdmin();
-      
-      // Bank accounts subcollection
-      match /bankAccounts/{accountId} {
-        allow read, write: if isOwner(userId);
+
+    function isAccountant() {
+      return isAuthenticated() && userRole() in ['accountant', 'admin'];
+    }
+
+    // ======================================================
+    // TENANT ISOLATION HELPERS
+    // ======================================================
+
+    // Same business OR legacy ownership fallback
+    function isBusinessMember(resourceData) {
+      return
+        (
+          userBusinessId() != null &&
+          resourceData.businessId != null &&
+          userBusinessId() == resourceData.businessId
+        )
+        ||
+        (
+          resourceData.businessId == null &&
+          resourceData.userId == userId()
+        );
+    }
+
+    // Validate creation inside tenant
+    function canCreateInBusiness(requestData) {
+      return
+        (
+          userBusinessId() != null &&
+          requestData.businessId == userBusinessId()
+        )
+        ||
+        (
+          userBusinessId() == null &&
+          requestData.userId == userId()
+        );
+    }
+
+    // User doc belongs to same business (legacy-safe)
+    function isUserDocInBusiness(userData) {
+      return
+        (
+          userBusinessId() != null &&
+          userData.businessId != null &&
+          userBusinessId() == userData.businessId
+        )
+        ||
+        (
+          userData.businessId == null &&
+          userData.createdBy == userId()
+        );
+    }
+
+    // ======================================================
+    // BUSINESSES
+    // ======================================================
+
+    match /businesses/{businessId} {
+      allow read: if isAuthenticated() && userBusinessId() == businessId;
+      allow update: if isAdmin() && userBusinessId() == businessId;
+      allow create: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // ======================================================
+    // USERS
+    // ======================================================
+
+    match /users/{uid} {
+      // Read
+      allow read: if
+        uid == userId() ||
+        (isAdmin() && isUserDocInBusiness(resource.data));
+
+      // Create (first login)
+      allow create: if
+        uid == userId() &&
+        canCreateInBusiness(request.resource.data);
+
+      // Update
+      allow update: if
+        (
+          // User updating own non-privileged fields
+          uid == userId() &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.businessId == resource.data.businessId &&
+          request.resource.data.createdBy == resource.data.createdBy
+        )
+        ||
+        (
+          // Admin updating users in same business
+          isAdmin() &&
+          isUserDocInBusiness(resource.data) &&
+          request.resource.data.businessId == resource.data.businessId
+        );
+
+      // Delete
+      allow delete: if isAdmin() && isUserDocInBusiness(resource.data);
+
+      // -----------------------------
+      // Subcollections (user-owned)
+      // -----------------------------
+
+      match /bankAccounts/{id} {
+        allow read, write: if uid == userId();
       }
 
-      // Petty cash subcollection
-      match /pettyCash/{pettyId} {
-        allow read, write: if isOwner(userId);
+      match /pettyCash/{id} {
+        allow read, write: if uid == userId();
       }
 
-      // Summary subcollection (for dashboard aggregations)
-      match /summary/{summaryId} {
-        allow read, write: if isOwner(userId);
+      match /summary/{id} {
+        allow read, write: if uid == userId();
       }
     }
-    
-    // ============================================
-    // CUSTOMERS COLLECTION
-    // ============================================
-    match /customers/{customerId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+
+    // ======================================================
+    // BUSINESS DATA COLLECTIONS
+    // ======================================================
+
+    match /customers/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // SUPPLIERS COLLECTION
-    // ============================================
-    match /suppliers/{supplierId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /suppliers/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // SALES COLLECTION
-    // ============================================
-    match /sales/{saleId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /sales/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // PURCHASES COLLECTION
-    // ============================================
-    match /purchases/{purchaseId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /purchases/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // INCOME COLLECTION
-    // ============================================
-    match /income/{incomeId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /income/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // EXPENSES COLLECTION
-    // ============================================
-    match /expenses/{expenseId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /expenses/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // OPERATIONAL EXPENSES COLLECTION
-    // ============================================
-    match /operationalExpenses/{expenseId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /operationalExpenses/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // TRANSFERS COLLECTION
-    // ============================================
-    match /transfers/{transferId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
-    }
-    
-    // ============================================
-    // EXPENSE CATEGORIES COLLECTION
-    // ============================================
-    match /expenseCategories/{categoryId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /transfers/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // PETTY CASH OPENING COLLECTION
-    // ============================================
-    match /pettyCashOpening/{openingId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /expenseCategories/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // ============================================
-    // DELIVERY CHALLANS COLLECTION
-    // ============================================
-    match /deliveryChallans/{challanId} {
-      allow create: if isAuthenticated() &&
-                     request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isAuthenticated() &&
-                          resource.data.userId == request.auth.uid;
+    match /pettyCashOpening/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
-    // Deny all other access by default
+    match /deliveryChallans/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
+    }
+
+    // ======================================================
+    // AUDIT LOGS
+    // ======================================================
+
+    match /auditLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ======================================================
+    // DEFAULT DENY
+    // ======================================================
+
     match /{document=**} {
       allow read, write: if false;
     }
   }
 }
-

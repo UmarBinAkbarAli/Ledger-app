@@ -151,11 +151,39 @@ export default function AddPurchasePage() {
       const user = auth.currentUser;
       if (!user) return;
 
-      const q = query(collection(db, "suppliers"), where("userId", "==", user.uid));
-      const snap = await getDocs(q);
-      const list: any[] = [];
-      snap.forEach((d) => list.push({ id: d.id, ...(d.data() as any) }));
-      setSuppliers(list);
+      try {
+        // Get businessId from user profile
+        let bizId: string | undefined;
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          if (userSnap.exists()) {
+            bizId = userSnap.data().businessId;
+          }
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+
+        const byBusiness = bizId ? query(collection(db, "suppliers"), where("businessId", "==", bizId)) : null;
+        const byUser = query(collection(db, "suppliers"), where("userId", "==", user.uid));
+
+        let snap;
+        try {
+          snap = await getDocs(byBusiness || byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied for suppliers, falling back to userId");
+            snap = await getDocs(byUser);
+          } else {
+            throw err;
+          }
+        }
+
+        const list: any[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...(d.data() as any) }));
+        setSuppliers(list);
+      } catch (err) {
+        console.error("Error loading suppliers:", err);
+      }
     };
     loadSuppliers();
   }, []);

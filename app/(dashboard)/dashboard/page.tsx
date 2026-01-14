@@ -207,15 +207,54 @@ export default function DashboardPage() {
       const currentRange = getDateRange(timePeriod);
       const previousRange = getPreviousDateRange(timePeriod);
 
+      // Get businessId from user profile for business-scoped queries
+      let bizId: string | undefined;
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          bizId = userSnap.data().businessId;
+        }
+      } catch (e) {
+        console.warn("Could not fetch user profile for businessId", e);
+      }
+
+      // Build scope field - prefer businessId, fallback to userId
+      const scopeField = bizId ? "businessId" : "userId";
+      const scopeValue = bizId || user.uid;
+      let effectiveScopeField = scopeField;
+      let effectiveScopeValue = scopeValue;
+
+      const runScopedPeriodQueries = (field: string, value: string) =>
+        Promise.all([
+          getDocs(query(collection(db, "sales"), where(field, "==", value), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
+          getDocs(query(collection(db, "purchases"), where(field, "==", value), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
+          getDocs(query(collection(db, "income"), where(field, "==", value), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
+          getDocs(query(collection(db, "expenses"), where(field, "==", value), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
+          getDocs(query(collection(db, "operationalExpenses"), where(field, "==", value), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
+          getDocs(query(collection(db, "pettyCashOpening"), where(field, "==", value))),
+        ]);
+
       // Fetch current period data
-      const [salesSnap, purchasesSnap, incomeSnap, expensesSnap, opExpensesSnap, pettyCashOpeningSnap] = await Promise.all([
-        getDocs(query(collection(db, "sales"), where("userId", "==", user.uid), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
-        getDocs(query(collection(db, "purchases"), where("userId", "==", user.uid), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
-        getDocs(query(collection(db, "income"), where("userId", "==", user.uid), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
-        getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
-        getDocs(query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("date", ">=", currentRange.start), where("date", "<=", currentRange.end))),
-        getDocs(query(collection(db, "pettyCashOpening"), where("userId", "==", user.uid))),
-      ]);
+      let salesSnap;
+      let purchasesSnap;
+      let incomeSnap;
+      let expensesSnap;
+      let opExpensesSnap;
+      let pettyCashOpeningSnap;
+      try {
+        [salesSnap, purchasesSnap, incomeSnap, expensesSnap, opExpensesSnap, pettyCashOpeningSnap] = await runScopedPeriodQueries(scopeField, scopeValue);
+      } catch (err: any) {
+        // Fallback to userId if business scope fails
+        if (err?.code === "permission-denied" && bizId) {
+          console.warn("Business-scoped query denied in dashboard, falling back to userId");
+          effectiveScopeField = "userId";
+          effectiveScopeValue = user.uid;
+          [salesSnap, purchasesSnap, incomeSnap, expensesSnap, opExpensesSnap, pettyCashOpeningSnap] =
+            await runScopedPeriodQueries(effectiveScopeField, effectiveScopeValue);
+        } else {
+          throw err;
+        }
+      }
 
       // Calculate current totals
       const totalSales = salesSnap.docs.reduce((sum, doc) => sum + (Number(doc.data().total) || 0), 0);
@@ -235,11 +274,11 @@ export default function DashboardPage() {
 
       // Calculate petty cash transactions (all time, CASH payment method only)
       const [pettyCashIncomeSnap, pettyCashExpensesSnap, pettyCashOpExpensesSnap, transfersInSnap, transfersOutSnap] = await Promise.all([
-        getDocs(query(collection(db, "income"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"))),
-        getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"))),
-        getDocs(query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("paymentMethod", "==", "CASH"))),
-        getDocs(query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", "Petty Cash"))),
-        getDocs(query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", "Petty Cash"))),
+        getDocs(query(collection(db, "income"), where(effectiveScopeField, "==", effectiveScopeValue), where("paymentMethod", "==", "CASH"))),
+        getDocs(query(collection(db, "expenses"), where(effectiveScopeField, "==", effectiveScopeValue), where("paymentMethod", "==", "CASH"))),
+        getDocs(query(collection(db, "operationalExpenses"), where(effectiveScopeField, "==", effectiveScopeValue), where("paymentMethod", "==", "CASH"))),
+        getDocs(query(collection(db, "transfers"), where(effectiveScopeField, "==", effectiveScopeValue), where("toAccount", "==", "Petty Cash"))),
+        getDocs(query(collection(db, "transfers"), where(effectiveScopeField, "==", effectiveScopeValue), where("fromAccount", "==", "Petty Cash"))),
       ]);
 
       const pettyCashIn =
@@ -255,11 +294,11 @@ export default function DashboardPage() {
 
       // Fetch previous period data for comparison
       const [prevSalesSnap, prevPurchasesSnap, prevIncomeSnap, prevExpensesSnap, prevOpExpensesSnap] = await Promise.all([
-        getDocs(query(collection(db, "sales"), where("userId", "==", user.uid), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
-        getDocs(query(collection(db, "purchases"), where("userId", "==", user.uid), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
-        getDocs(query(collection(db, "income"), where("userId", "==", user.uid), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
-        getDocs(query(collection(db, "expenses"), where("userId", "==", user.uid), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
-        getDocs(query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
+        getDocs(query(collection(db, "sales"), where(effectiveScopeField, "==", effectiveScopeValue), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
+        getDocs(query(collection(db, "purchases"), where(effectiveScopeField, "==", effectiveScopeValue), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
+        getDocs(query(collection(db, "income"), where(effectiveScopeField, "==", effectiveScopeValue), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
+        getDocs(query(collection(db, "expenses"), where(effectiveScopeField, "==", effectiveScopeValue), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
+        getDocs(query(collection(db, "operationalExpenses"), where(effectiveScopeField, "==", effectiveScopeValue), where("date", ">=", previousRange.start), where("date", "<=", previousRange.end))),
       ]);
 
       const prevTotalSales = prevSalesSnap.docs.reduce((sum, doc) => sum + (Number(doc.data().total) || 0), 0);

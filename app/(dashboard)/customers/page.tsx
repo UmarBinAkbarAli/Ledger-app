@@ -15,91 +15,111 @@ interface CustomerType {
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, getDoc, doc } from "firebase/firestore";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
 
   const loadCustomers = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-        // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
-        const [customersSnap, allSalesSnap, allPaymentsSnap] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "customers"),
-              where("userId", "==", user.uid)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "sales"),
-              where("userId", "==", user.uid)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "income"),
-              where("userId", "==", user.uid)
-            )
-          )
+      // Fetch authoritative businessId when available
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+
+      // Build queries. Prefer business-scoped reads when bizId exists, but gracefully retry with user scope on permission-denied
+      const customersByBusiness = bizId ? query(collection(db, "customers"), where("businessId", "==", bizId)) : null;
+      const customersByUser = query(collection(db, "customers"), where("userId", "==", user.uid));
+
+      const salesByBusiness = bizId ? query(collection(db, "sales"), where("businessId", "==", bizId)) : query(collection(db, "sales"), where("userId", "==", user.uid));
+      const paymentsByBusiness = bizId ? query(collection(db, "income"), where("businessId", "==", bizId)) : query(collection(db, "income"), where("userId", "==", user.uid));
+
+      let customersSnap, allSalesSnap, allPaymentsSnap;
+
+      try {
+        const byCustomers = customersByBusiness ? customersByBusiness : customersByUser;
+        const bySales = salesByBusiness;
+        const byPayments = paymentsByBusiness;
+
+        [customersSnap, allSalesSnap, allPaymentsSnap] = await Promise.all([
+          getDocs(byCustomers),
+          getDocs(bySales),
+          getDocs(byPayments),
         ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && customersByBusiness) {
+          console.warn("Business scope denied loading customers; retrying with userId scope", { authedUser: user.uid, businessId: bizId });
+          // Retry with user-scoped queries
+          [customersSnap, allSalesSnap, allPaymentsSnap] = await Promise.all([
+            getDocs(customersByUser),
+            getDocs(query(collection(db, "sales"), where("userId", "==", user.uid))),
+            getDocs(query(collection(db, "income"), where("userId", "==", user.uid))),
+          ]);
 
-        // ✅ Group sales by customerId in memory (O(n) operation)
-        const salesByCustomer: Record<string, number> = {};
-        allSalesSnap.forEach((doc) => {
-          const data = doc.data();
-          const customerId = data.customerId;
-          const amount = Number(data.total || data.subtotal || 0);
-
-          if (customerId) {
-            salesByCustomer[customerId] = (salesByCustomer[customerId] || 0) + amount;
-          }
-        });
-
-        // ✅ Group payments by customerId in memory (O(n) operation)
-        const paymentsByCustomer: Record<string, number> = {};
-        allPaymentsSnap.forEach((doc) => {
-          const data = doc.data();
-          const customerId = data.customerId;
-          const amount = Number(data.amount || 0);
-
-          if (customerId) {
-            paymentsByCustomer[customerId] = (paymentsByCustomer[customerId] || 0) + amount;
-          }
-        });
-
-        // ✅ Build customer list with calculated balances
-        const list: CustomerType[] = customersSnap.docs.map((d) => {
-          const customer = d.data() as CustomerType;
-          const customerId = d.id;
-
-          const totalSales = salesByCustomer[customerId] || 0;
-          const totalPayments = paymentsByCustomer[customerId] || 0;
-          const opening = Number(customer.previousBalance || 0);
-          const currentBalance = opening + totalSales - totalPayments;
-
-          return {
-            ...customer,
-            id: customerId,
-            currentBalance,
-          };
-        });
-
-        // Sort alphabetically for clean UI
-        list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-
-        setCustomers(list);
-      } catch (err) {
-        console.error("Error loading customers:", err);
-      } finally {
-        setLoading(false);
+          // Inform user briefly
+          setMessage("Limited view: only your personal customers are shown because your account lacks business-level read access.");
+          setTimeout(() => setMessage(""), 6000);
+        } else {
+          throw err;
+        }
       }
-    };
+
+      // Group sales by customerId in memory (O(n) operation)
+      const salesByCustomer: Record<string, number> = {};
+      allSalesSnap.forEach((doc) => {
+        const data = doc.data();
+        const customerId = data.customerId;
+        const amount = Number(data.total || data.subtotal || 0);
+
+        if (customerId) {
+          salesByCustomer[customerId] = (salesByCustomer[customerId] || 0) + amount;
+        }
+      });
+
+      // Group payments by customerId in memory (O(n) operation)
+      const paymentsByCustomer: Record<string, number> = {};
+      allPaymentsSnap.forEach((doc) => {
+        const data = doc.data();
+        const customerId = data.customerId;
+        const amount = Number(data.amount || 0);
+
+        if (customerId) {
+          paymentsByCustomer[customerId] = (paymentsByCustomer[customerId] || 0) + amount;
+        }
+      });
+
+      // Build customer list with calculated balances
+      const list: CustomerType[] = customersSnap.docs.map((d) => {
+        const customer = d.data() as CustomerType;
+        const customerId = d.id;
+
+        const totalSales = salesByCustomer[customerId] || 0;
+        const totalPayments = paymentsByCustomer[customerId] || 0;
+        const opening = Number(customer.previousBalance || 0);
+        const currentBalance = opening + totalSales - totalPayments;
+
+        return {
+          ...customer,
+          id: customerId,
+          currentBalance,
+        };
+      });
+
+      // Sort alphabetically for clean UI
+      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+      setCustomers(list);
+    } catch (err) {
+      console.error("Error loading customers:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load data on mount
   useEffect(() => {
@@ -118,6 +138,8 @@ export default function CustomersPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+
+
   if (loading) return <p className="p-6">Loading customers...</p>;
 
   return (
@@ -127,13 +149,19 @@ export default function CustomersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Customers</h1>
 
-        <Link
-          href="/customers/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
-        >
-          + Add Customer
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href="/customers/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+          >
+            + Add Customer
+          </Link>
+        </div>
       </div>
+
+      {message && (
+        <div className="mb-4 text-sm text-yellow-700 bg-yellow-100 px-3 py-2 rounded">{message}</div>
+      )}
 
       {/* Search */}
       <div className="mb-4">
@@ -196,6 +224,7 @@ export default function CustomersPage() {
           </tbody>
         </table>
       </div>
+
     </div>
   );
 }

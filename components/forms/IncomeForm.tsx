@@ -36,21 +36,25 @@ export default function IncomeForm({
   /* Load customers */
   useEffect(() => {
     const fetchCustomers = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-      const q = query(
-        collection(db, "customers"),
-        where("userId", "==", user.uid)
-      );
-      const snap = await getDocs(q);
+        const q = query(
+          collection(db, "customers"),
+          where("userId", "==", user.uid)
+        );
+        const snap = await getDocs(q);
 
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      list.sort((a: any, b: any) =>
-        (a.name || "").localeCompare(b.name || "")
-      );
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) =>
+          (a.name || "").localeCompare(b.name || "")
+        );
 
-      setCustomerList(list);
+        setCustomerList(list);
+      } catch (err) {
+        console.error("Error loading customers:", err);
+      }
     };
 
     fetchCustomers();

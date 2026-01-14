@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { getPakistanDate } from "@/lib/dateUtils";
 
@@ -20,6 +20,7 @@ interface Customer {
 
 export default function NewDeliveryChallanPage() {
   const router = useRouter();
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   // Form fields
   const [challanNumber, setChallanNumber] = useState("");
@@ -50,26 +51,54 @@ export default function NewDeliveryChallanPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Load customers
+  // Load current user's businessId, then customers
   useEffect(() => {
     const loadCustomers = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-      const q = query(
-        collection(db, "customers"),
-        where("userId", "==", user.uid)
-      );
-      const snap = await getDocs(q);
+        // Fetch businessId from user profile (tenant boundary)
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        setBusinessId(bizId);
 
-      const list: Customer[] = snap.docs.map((d) => ({
-        id: d.id,
-        name: d.data().name || "",
-        company: d.data().company || "",
-        address: d.data().address || "",
-      }));
+        // Prefer business-scoped query; if denied, retry with user-scoped query
+        const byBusiness = bizId ? query(collection(db, "customers"), where("businessId", "==", bizId)) : null;
+        const byUser = query(collection(db, "customers"), where("userId", "==", user.uid));
 
-      setCustomers(list);
+        let snap;
+        try {
+          snap = byBusiness ? await getDocs(byBusiness) : await getDocs(byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied loading customers; retrying with userId scope", { authedUser: user.uid, businessId: bizId });
+            snap = await getDocs(byUser);
+
+            // Inform the user that we're showing only their personal records
+            setMessage("Limited view: only your personal customers are shown because your account lacks business-level read access.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
+
+        const list: Customer[] = snap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name || "",
+          company: d.data().company || "",
+          address: d.data().address || "",
+        }));
+
+        setCustomers(list);
+      } catch (err: any) {
+        if (err?.code === "permission-denied") {
+          console.warn("Permission denied loading customers; falling back to empty list", { authedUser: auth.currentUser?.uid, message: err.message });
+          setCustomers([]);
+          return;
+        }
+        console.error("Error loading customers:", err);
+      }
     };
 
     loadCustomers();
@@ -78,21 +107,44 @@ export default function NewDeliveryChallanPage() {
   // Auto-generate challan number
   useEffect(() => {
     const generateChallanNumber = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
 
-      const q = query(
-        collection(db, "deliveryChallans"),
-        where("userId", "==", user.uid)
-      );
-      const snap = await getDocs(q);
+        // Prefer business-scoped query; if denied, retry with user-scoped query
+        const byBusiness = businessId ? query(collection(db, "deliveryChallans"), where("businessId", "==", businessId)) : null;
+        const byUser = query(collection(db, "deliveryChallans"), where("userId", "==", user.uid));
 
-      const nextNumber = snap.size + 1;
-      setChallanNumber(`CH-${nextNumber.toString().padStart(4, "0")}`);
+        let snap;
+        try {
+          snap = byBusiness ? await getDocs(byBusiness) : await getDocs(byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied generating challan number; retrying with userId scope", { authedUser: user.uid, businessId });
+            snap = await getDocs(byUser);
+
+            // Communicate fallback to the user
+            setMessage("Limited view: challan numbers are scoped to your account because you lack business-level read access.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
+
+        const nextNumber = snap.size + 1;
+        setChallanNumber(`CH-${nextNumber.toString().padStart(4, "0")}`);
+      } catch (err: any) {
+        if (err?.code === "permission-denied") {
+          console.warn("Permission denied generating challan number; defaulting to 1", { authedUser: auth.currentUser?.uid, businessId, message: err.message });
+          setChallanNumber(`CH-0001`);
+          return;
+        }
+        console.error("Error generating challan number:", err);
+      }
     };
 
     generateChallanNumber();
-  }, []);
+  }, [businessId]);
 
   // Filter companies real-time (search by company name)
   useEffect(() => {
@@ -181,6 +233,11 @@ export default function NewDeliveryChallanPage() {
       return;
     }
 
+    // Re-fetch current user profile early so any created records use the authoritative businessId
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userBusinessId = userDoc.exists() ? (userDoc.data()?.businessId ?? null) : null;
+    const businessIdForWrite = userBusinessId ? userBusinessId : user.uid; // legacy users use uid as tenant
+
     // Allow typed customer name and create customer if it doesn't exist (like Sales)
     const typedName = (customerName || "").trim();
     if (!typedName) {
@@ -210,11 +267,24 @@ export default function NewDeliveryChallanPage() {
           company: customerCompany || "",
           address: customerAddress || "",
           phone: "",
+          businessId: businessIdForWrite,
           userId: user.uid,
           createdAt: serverTimestamp(),
         };
 
-        const newRef = await addDoc(collection(db, "customers"), newCustObj);
+        // Catch permission errors when creating customer so they don't bubble as uncaught promises
+        let newRef;
+        try {
+          newRef = await addDoc(collection(db, "customers"), newCustObj);
+        } catch (err: any) {
+          if (err?.code === "permission-denied") {
+            console.error("Permission denied creating customer", { authedUser: user.uid, businessIdForWrite, message: err.message });
+            setError("Permission denied: your account cannot create a customer for this business. Please contact your administrator.");
+            return;
+          }
+          throw err;
+        }
+
         finalCustomerId = newRef.id;
         setSelectedCustomerId(finalCustomerId);
         setCustomers((prev) => [{ id: finalCustomerId, ...newCustObj }, ...prev]);
@@ -231,8 +301,19 @@ export default function NewDeliveryChallanPage() {
     try {
       if (!user) throw new Error("Not authenticated");
 
+      // Ensure the new customer (if created above) has the correct businessId
+      if (!finalCustomerId && customerName && !selectedCustomerId) {
+        // we created a customer during this submit flow; ensure its businessId aligns
+        // Find the created customer in the local list (by matching name + address)
+        const created = customers.find((c) => c.name === customerName && c.address === customerAddress);
+        if (created) {
+          finalCustomerId = created.id;
+        }
+      }
+
       const challanData = {
         userId: user.uid,
+        businessId: businessIdForWrite,
         challanNumber,
         date,
         vehicle: vehicle.trim(),
@@ -252,9 +333,26 @@ export default function NewDeliveryChallanPage() {
       };
 
       // Save challan and redirect to its preview page (so user can print/download)
-      const docRef = await addDoc(collection(db, "deliveryChallans"), challanData);
+      let docRef;
+      try {
+        docRef = await addDoc(collection(db, "deliveryChallans"), challanData);
+      } catch (err: any) {
+        // If Firestore denies create due to mismatched tenant, provide a clear message
+        if (err?.code === "permission-denied") {
+          console.error("Permission denied creating challan", {
+            authedUser: user.uid,
+            userBusinessId,
+            businessIdForWrite,
+            errorMessage: err.message,
+          });
+          setError("Permission denied: your account cannot create a challan for this business. Please contact your administrator.");
+          return;
+        }
+        throw err;
+      }
+
       router.push(`/delivery-challan/${docRef.id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating challan:", err);
       setError("Failed to create challan. Please try again.");
     } finally {

@@ -28,14 +28,19 @@ export default function BankAccountsPage() {
     if (!user) return;
 
     setLoading(true);
-    const ref = collection(db, "users", user.uid, "bankAccounts");
-    const snap = await getDocs(ref);
+    try {
+      const ref = collection(db, "users", user.uid, "bankAccounts");
+      const snap = await getDocs(ref);
 
-    const list: any[] = [];
-    snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      const list: any[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
 
-    setAccounts(list);
-    setLoading(false);
+      setAccounts(list);
+    } catch (err) {
+      console.error("Error loading bank accounts:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -46,38 +51,50 @@ export default function BankAccountsPage() {
     const user = auth.currentUser;
     if (!user || !bankName.trim()) return;
 
-    await addDoc(collection(db, "users", user.uid, "bankAccounts"), {
-      userId: user.uid,
-      name: bankName.trim(),
-      openingBalance: Number(openingBalance || 0),
-      openingDate,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      await addDoc(collection(db, "users", user.uid, "bankAccounts"), {
+        userId: user.uid,
+        name: bankName.trim(),
+        openingBalance: Number(openingBalance || 0),
+        openingDate,
+        createdAt: serverTimestamp(),
+      });
 
-    setBankName("");
-    setOpeningBalance("");
-    setOpeningDate(new Date().toISOString().slice(0, 10));
-    loadAccounts();
+      setBankName("");
+      setOpeningBalance("");
+      setOpeningDate(new Date().toISOString().slice(0, 10));
+      loadAccounts();
+    } catch (err) {
+      console.error("Error adding bank account:", err);
+    }
   };
 
   const updateBalance = async (id: string, balance: number) => {
     const user = auth.currentUser;
     if (!user) return;
 
-    await updateDoc(doc(db, "users", user.uid, "bankAccounts", id), {
-      openingBalance: balance,
-    });
+    try {
+      await updateDoc(doc(db, "users", user.uid, "bankAccounts", id), {
+        openingBalance: balance,
+      });
 
-    setEditingId(null);
-    loadAccounts();
+      setEditingId(null);
+      loadAccounts();
+    } catch (err) {
+      console.error("Error updating bank balance:", err);
+    }
   };
 
   const removeBank = async (id: string) => {
     const user = auth.currentUser;
     if (!user) return;
 
-    await deleteDoc(doc(db, "users", user.uid, "bankAccounts", id));
-    loadAccounts();
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "bankAccounts", id));
+      loadAccounts();
+    } catch (err) {
+      console.error("Error removing bank account:", err);
+    }
   };
 
   if (loading)

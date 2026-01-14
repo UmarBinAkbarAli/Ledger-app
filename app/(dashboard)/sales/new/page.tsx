@@ -136,12 +136,39 @@ useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
 
-    const q = query(collection(db, "customers"), where("userId", "==", user.uid));
-    const snap = await getDocs(q);
+    try {
+      // Get businessId from user profile
+      let bizId: string | undefined;
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          bizId = userSnap.data().businessId;
+        }
+      } catch (e) {
+        console.warn("Could not fetch user profile for businessId", e);
+      }
 
-    const list: any[] = [];
-    snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
-    setCustomers(list);
+      const byBusiness = bizId ? query(collection(db, "customers"), where("businessId", "==", bizId)) : null;
+      const byUser = query(collection(db, "customers"), where("userId", "==", user.uid));
+
+      let snap;
+      try {
+        snap = await getDocs(byBusiness || byUser);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && byBusiness) {
+          console.warn("Business scope denied for customers, falling back to userId");
+          snap = await getDocs(byUser);
+        } else {
+          throw err;
+        }
+      }
+
+      const list: any[] = [];
+      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() }));
+      setCustomers(list);
+    } catch (err) {
+      console.error("Error loading customers:", err);
+    }
   };
 
   loadCustomers();
@@ -176,13 +203,41 @@ useEffect(() => {
     if (!user) return;
 
     try {
-      const q = query(
+      // Get businessId from user profile
+      let bizId: string | undefined;
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          bizId = userSnap.data().businessId;
+        }
+      } catch (e) {
+        console.warn("Could not fetch user profile for businessId", e);
+      }
+
+      const byBusiness = bizId ? query(
+        collection(db, "deliveryChallans"),
+        where("businessId", "==", bizId),
+        where("customerId", "==", customerId),
+        where("status", "in", ["pending", "delivered"])
+      ) : null;
+      const byUser = query(
         collection(db, "deliveryChallans"),
         where("userId", "==", user.uid),
         where("customerId", "==", customerId),
         where("status", "in", ["pending", "delivered"])
       );
-      const snap = await getDocs(q);
+
+      let snap;
+      try {
+        snap = await getDocs(byBusiness || byUser);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && byBusiness) {
+          console.warn("Business scope denied for challans, falling back to userId");
+          snap = await getDocs(byUser);
+        } else {
+          throw err;
+        }
+      }
 
       const list: Challan[] = snap.docs.map((d) => {
         const data = d.data();

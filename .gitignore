@@ -49,3 +49,4 @@ next-env.d.ts
 # Local files
 node_modules.zip
 *.zip
+service-key.json

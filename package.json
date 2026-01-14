@@ -9,8 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "firebase": "^10.7.0",
+    "firebase-admin": "^13.6.0",
     "html2pdf.js": "^0.12.1",
+    "rate-limiter-flexible": "^5.0.3",
     "next": "^16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

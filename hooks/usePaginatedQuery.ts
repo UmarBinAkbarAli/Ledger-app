@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
+import { useBusiness } from "@/hooks/useBusiness";
 import {
   collection,
   getDocs,
@@ -51,9 +52,11 @@ export function usePaginatedQuery<T extends { id: string }>({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState("");
+  const { businessId, loading: businessLoading } = useBusiness();
   
   // Use ref to avoid infinite loop from lastDoc in dependency array
   const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const scopeRef = useRef<{ field: "businessId" | "userId"; value: string } | null>(null);
 
   const fetchItems = useCallback(
     async (isNextPage = false) => {
@@ -65,30 +68,54 @@ export function usePaginatedQuery<T extends { id: string }>({
           return;
         }
 
+        if (businessLoading) return;
         if (isNextPage) setLoadingMore(true);
         else setLoading(true);
 
         const itemsRef = collection(db, collectionName);
-        let q;
-
-        if (isNextPage && lastDocRef.current) {
-          q = query(
-            itemsRef,
-            where("userId", "==", user.uid),
-            orderBy(orderByField, orderDirection),
-            startAfter(lastDocRef.current),
-            limit(pageSize)
-          );
-        } else {
-          q = query(
-            itemsRef,
-            where("userId", "==", user.uid),
-            orderBy(orderByField, orderDirection),
-            limit(pageSize)
-          );
+        if (!isNextPage) {
+          lastDocRef.current = null;
+          setHasMore(true);
+          scopeRef.current = null;
         }
 
-        const snap = await getDocs(q);
+        const desiredScope = businessId
+          ? { field: "businessId" as const, value: businessId }
+          : { field: "userId" as const, value: user.uid };
+        let effectiveScope = isNextPage && scopeRef.current ? scopeRef.current : desiredScope;
+        let appendResults = isNextPage;
+
+        const buildQuery = (field: "businessId" | "userId", value: string, lastDoc?: QueryDocumentSnapshot<DocumentData> | null) =>
+          query(
+            itemsRef,
+            where(field, "==", value),
+            orderBy(orderByField, orderDirection),
+            ...(lastDoc ? [startAfter(lastDoc)] : []),
+            limit(pageSize)
+          );
+
+        let snap;
+        try {
+          const lastDoc = appendResults ? lastDocRef.current : null;
+          snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, lastDoc));
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && businessId) {
+            console.warn("Business-scoped query denied; retrying with userId scope", {
+              collectionName,
+              userId: user.uid,
+              businessId,
+            });
+            effectiveScope = { field: "userId", value: user.uid };
+            scopeRef.current = effectiveScope;
+            lastDocRef.current = null;
+            appendResults = false;
+            snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, null));
+          } else {
+            throw err;
+          }
+        }
+
+        scopeRef.current = effectiveScope;
 
         if (snap.empty) {
           setHasMore(false);
@@ -110,7 +137,7 @@ export function usePaginatedQuery<T extends { id: string }>({
             : ({ id: d.id, ...d.data() } as T)
         );
 
-        if (isNextPage) {
+        if (appendResults) {
           setItems((prev) => [...prev, ...list]);
         } else {
           setItems(list);
@@ -125,12 +152,13 @@ export function usePaginatedQuery<T extends { id: string }>({
         setLoadingMore(false);
       }
     },
-    [collectionName, pageSize, orderByField, orderDirection, dataTransform]
+    [collectionName, pageSize, orderByField, orderDirection, dataTransform, businessId, businessLoading]
   );
 
   useEffect(() => {
+    if (businessLoading) return;
     fetchItems(false);
-  }, [collectionName, fetchItems]);
+  }, [collectionName, fetchItems, businessLoading]);
 
   return [
     { items, loading, loadingMore, hasMore, error },

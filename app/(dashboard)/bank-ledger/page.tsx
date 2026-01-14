@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
+import { useBusiness } from "@/hooks/useBusiness";
 
 export default function BankLedgerPage() {
   const [banks, setBanks] = useState<any[]>([]);
   const [selectedBank, setSelectedBank] = useState("");
   const selectedBankObj = banks.find((b) => b.name === selectedBank);
+  const { businessId, loading: businessLoading } = useBusiness();
 
   // FIX: Default dates to Pakistan Time
   const [startDate, setStartDate] = useState(getPakistanDate(-7)); // 7 Days Ago (PKT)
@@ -42,16 +44,41 @@ export default function BankLedgerPage() {
     const calcOpening = async () => {
       const user = auth.currentUser;
       if (!user || !selectedBank) return;
+      if (businessLoading) return;
 
-      const qIn = query(collection(db, "income"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
-      const qExp = query(collection(db, "expenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
-      const qOp = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
-      const qTrIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", selectedBank), where("date", "<", startDate));
-      const qTrOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", selectedBank), where("date", "<", startDate));
+      const scopeField = businessId ? "businessId" : "userId";
+      const scopeValue = businessId || user.uid;
+      let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
+      try {
+        const qIn = query(collection(db, "income"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", "<", startDate));
+        const qExp = query(collection(db, "expenses"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", "<", startDate));
+        const qOp = query(collection(db, "operationalExpenses"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", "<", startDate));
+        const qTrIn = query(collection(db, "transfers"), where(scopeField, "==", scopeValue), where("toAccount", "==", selectedBank), where("date", "<", startDate));
+        const qTrOut = query(collection(db, "transfers"), where(scopeField, "==", scopeValue), where("fromAccount", "==", selectedBank), where("date", "<", startDate));
 
-      const [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
-        getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
-      ]);
+        [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+          getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
+        ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "bankLedgerOpening",
+            userId: user.uid,
+            businessId,
+          });
+          const qIn = query(collection(db, "income"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
+          const qExp = query(collection(db, "expenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
+          const qOp = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", "<", startDate));
+          const qTrIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", selectedBank), where("date", "<", startDate));
+          const qTrOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", selectedBank), where("date", "<", startDate));
+
+          [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+            getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
+          ]);
+        } else {
+          throw err;
+        }
+      }
 
       const sum = (snap: any) => snap.docs.reduce((acc: number, d: any) => acc + Number((d.data() as any).amount || 0), 0);
       
@@ -61,22 +88,47 @@ export default function BankLedgerPage() {
       setOpeningBalance(Number(selectedBankObj?.openingBalance || 0) + totalIn - totalOut);
     };
     calcOpening();
-  }, [selectedBank, startDate, selectedBankObj]);
+  }, [selectedBank, startDate, selectedBankObj, businessId, businessLoading]);
 
   useEffect(() => {
     const loadData = async () => {
       const user = auth.currentUser;
       if (!user || !selectedBank) return;
+      if (businessLoading) return;
 
-      const qIn = query(collection(db, "income"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
-      const qExp = query(collection(db, "expenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
-      const qOp = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
-      const qTrIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
-      const qTrOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+      const scopeField = businessId ? "businessId" : "userId";
+      const scopeValue = businessId || user.uid;
+      let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
+      try {
+        const qIn = query(collection(db, "income"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+        const qExp = query(collection(db, "expenses"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+        const qOp = query(collection(db, "operationalExpenses"), where(scopeField, "==", scopeValue), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+        const qTrIn = query(collection(db, "transfers"), where(scopeField, "==", scopeValue), where("toAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+        const qTrOut = query(collection(db, "transfers"), where(scopeField, "==", scopeValue), where("fromAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
 
-      const [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
-        getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
-      ]);
+        [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+          getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
+        ]);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "bankLedgerRange",
+            userId: user.uid,
+            businessId,
+          });
+          const qIn = query(collection(db, "income"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+          const qExp = query(collection(db, "expenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+          const qOp = query(collection(db, "operationalExpenses"), where("userId", "==", user.uid), where("bankName", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+          const qTrIn = query(collection(db, "transfers"), where("userId", "==", user.uid), where("toAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+          const qTrOut = query(collection(db, "transfers"), where("userId", "==", user.uid), where("fromAccount", "==", selectedBank), where("date", ">=", startDate), where("date", "<=", endDate));
+
+          [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
+            getDocs(qIn), getDocs(qExp), getDocs(qOp), getDocs(qTrIn), getDocs(qTrOut)
+          ]);
+        } else {
+          throw err;
+        }
+      }
 
       const sum = (snap: any) => snap.docs.reduce((acc: number, d: any) => acc + Number((d.data() as any).amount || 0), 0);
 
@@ -94,7 +146,7 @@ export default function BankLedgerPage() {
       setTransactions(tx.sort((a, b) => (a.date > b.date ? 1 : -1)));
     };
     loadData();
-  }, [selectedBank, startDate, endDate]);
+  }, [selectedBank, startDate, endDate, businessId, businessLoading]);
 
   useEffect(() => {
     setClosingBalance(openingBalance + bankIn - bankOut);

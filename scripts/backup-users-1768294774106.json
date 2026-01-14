@@ -1,0 +1,61 @@
+[
+  {
+    "uid": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "ownerName": "Umar Akbar",
+    "companyName": "Dezlytics",
+    "website": "https://umarakbar.com",
+    "address": "House NO: D-524, Sector-2, Ahsanabad.",
+    "phone": "03130257701",
+    "logoPath": null,
+    "tagline": "You can't imagine my powers",
+    "email": "umarakbar73456@gmail.com",
+    "logoUrl": "https://drive.google.com/uc?export=view&id=1lT_lBLW-P-Q6pSBnzXXKQO8h3teWroys",
+    "updatedAt": {
+      "_seconds": 1768132856,
+      "_nanoseconds": 331000000
+    },
+    "role": "admin"
+  },
+  {
+    "uid": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "email": "umar@akbar.com",
+    "displayName": "umar",
+    "role": "sales_user",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1768237034,
+      "_nanoseconds": 428000000
+    },
+    "createdBy": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "metadata": {}
+  },
+  {
+    "uid": "koRVaIXDuxXGxrDZJbbruR4unCi1",
+    "companyName": "Boxilla Packages",
+    "role": "admin",
+    "website": "https://boxillapackages.com",
+    "address": "Plot #470, Bhangoria Goth, Federal B.Area, Karachi.",
+    "phone": "03128246221",
+    "tagline": "",
+    "email": "babarakbar76@gmail.com",
+    "logoUrl": null,
+    "ownerName": "Babar Akbar Ararin",
+    "updatedAt": {
+      "_seconds": 1768288392,
+      "_nanoseconds": 543000000
+    }
+  },
+  {
+    "uid": "rz9BnC7jA9RsBQ7xnWFFb9x7q1n1",
+    "email": "umer@tariq.com",
+    "displayName": "umer",
+    "role": "viewer",
+    "status": "active",
+    "createdAt": {
+      "_seconds": 1768236976,
+      "_nanoseconds": 764000000
+    },
+    "createdBy": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "metadata": {}
+  }
+]

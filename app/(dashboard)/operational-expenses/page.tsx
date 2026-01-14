@@ -11,6 +11,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { useBusiness } from "@/hooks/useBusiness";
 import {
   updateDoc,
   increment,
@@ -34,6 +35,7 @@ export default function OperationalExpensesPage() {
   const router = useRouter();
   const [categorySearch, setCategorySearch] = useState("");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const { businessId, loading: businessLoading } = useBusiness();
 
   // Default to today's date range
   const todayStr = new Date().toISOString().split('T')[0];
@@ -46,53 +48,78 @@ export default function OperationalExpensesPage() {
   const loadExpenses = async () => {
     const user = auth.currentUser;
     if (!user) return;
+    if (businessLoading) return;
 
     setLoading(true);
 
-        // If a date range is provided, use it; otherwise fall back to preset filter
-    let snap;
-    if (fromDate || toDate) {
-      const clauses: any[] = [where("userId", "==", user.uid)];
-      if (fromDate) clauses.push(where("date", ">=", fromDate));
-      if (toDate) clauses.push(where("date", "<=", toDate));
+    try {
+      const desiredScope = businessId
+        ? { field: "businessId" as const, value: businessId }
+        : { field: "userId" as const, value: user.uid };
 
-      snap = await getDocs(query(collection(db, "operationalExpenses"), ...clauses, orderBy("date", "desc")));
-    } else {
-      const start = new Date();
-      // Fallback to last 30 days if no date range is provided
-      start.setDate(start.getDate() - 30);
+      const runQuery = async (field: "businessId" | "userId", value: string) => {
+        if (fromDate || toDate) {
+          const clauses: any[] = [where(field, "==", value)];
+          if (fromDate) clauses.push(where("date", ">=", fromDate));
+          if (toDate) clauses.push(where("date", "<=", toDate));
+          return getDocs(query(collection(db, "operationalExpenses"), ...clauses, orderBy("date", "desc")));
+        }
 
-      snap = await getDocs(
-        query(
-          collection(db, "operationalExpenses"),
-          where("userId", "==", user.uid),
-          where("date", ">=", start.toISOString().split("T")[0]),
-          orderBy("date", "desc")
-        )
+        const start = new Date();
+        // Fallback to last 30 days if no date range is provided
+        start.setDate(start.getDate() - 30);
+        return getDocs(
+          query(
+            collection(db, "operationalExpenses"),
+            where(field, "==", value),
+            where("date", ">=", start.toISOString().split("T")[0]),
+            orderBy("date", "desc")
+          )
+        );
+      };
+
+      // If a date range is provided, use it; otherwise fall back to preset filter
+      let snap;
+      try {
+        snap = await runQuery(desiredScope.field, desiredScope.value);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "operationalExpenses",
+            userId: user.uid,
+            businessId,
+          });
+          snap = await runQuery("userId", user.uid);
+        } else {
+          throw err;
+        }
+      }
+
+      setExpenses(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            categoryName: data.categoryName || "",
+            description: data.description || "",
+            amount: Number(data.amount || 0),
+            date: data.date,
+            paymentMethod: data.paymentMethod,
+            bankName: data.bankName,
+          };
+        })
       );
+    } catch (err) {
+      console.error("Error loading operational expenses:", err);
+    } finally {
+      setLoading(false);
     }
-
-    setExpenses(
-      snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          categoryName: data.categoryName || "",
-          description: data.description || "",
-          amount: Number(data.amount || 0),
-          date: data.date,
-          paymentMethod: data.paymentMethod,
-          bankName: data.bankName,
-        };
-      })
-    );
-
-    setLoading(false);
   };
 
   // Load data when filter changes
   // Initial load: show today's expenses by default
   useEffect(() => {
+    if (businessLoading) return;
     setCategorySearch("");
     setShowCategoryDropdown(false);
     setDateError('');
@@ -100,7 +127,7 @@ export default function OperationalExpensesPage() {
     setFromDate((d) => d || todayStr);
     setToDate((d) => d || todayStr);
     loadExpenses();
-  }, []);
+  }, [businessLoading]);
 
   // reload whenever date range changes
   useEffect(() => {
@@ -109,14 +136,16 @@ export default function OperationalExpensesPage() {
       setDateError("Start date must be before or equal to end date.");
       return;
     }
+    if (businessLoading) return;
     setDateError("");
     loadExpenses();
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, businessLoading]);
 
   // Auto-refresh when page becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        if (businessLoading) return;
         loadExpenses();
       }
     };

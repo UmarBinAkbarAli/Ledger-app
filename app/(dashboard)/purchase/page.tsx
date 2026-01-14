@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
+import { useBusiness } from "@/hooks/useBusiness";
 import {
   collection,
   getDocs,
@@ -33,6 +34,7 @@ export default function PurchaseListPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { businessId, loading: businessLoading } = useBusiness();
 
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -40,12 +42,13 @@ export default function PurchaseListPage() {
 
   // --- Pagination State ---
   const ITEMS_PER_PAGE = 20;
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const scopeRef = useRef<{ field: "businessId" | "userId"; value: string } | null>(null);
 
 /* ---------------------- LOAD PURCHASES (PAGINATED) ------------------------ */
-  const fetchPurchases = async (isNextPage = false) => {
+  const fetchPurchases = useCallback(async (isNextPage = false) => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -53,33 +56,54 @@ export default function PurchaseListPage() {
         setLoading(false);
         return;
       }
+      if (businessLoading) return;
 
       if (isNextPage) setLoadingMore(true);
       else setLoading(true);
 
       const purchasesRef = collection(db, "purchases");
-      let q;
-
-      // Logic: If loading next page, start after the last document
-      if (isNextPage && lastDoc) {
-        q = query(
-          purchasesRef,
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          startAfter(lastDoc),
-          limit(ITEMS_PER_PAGE)
-        );
-      } else {
-        // Otherwise, load the first page
-        q = query(
-          purchasesRef,
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          limit(ITEMS_PER_PAGE)
-        );
+      if (!isNextPage) {
+        lastDocRef.current = null;
+        setHasMore(true);
+        scopeRef.current = null;
       }
 
-      const snap = await getDocs(q);
+      const desiredScope = businessId
+        ? { field: "businessId" as const, value: businessId }
+        : { field: "userId" as const, value: user.uid };
+      let effectiveScope = isNextPage && scopeRef.current ? scopeRef.current : desiredScope;
+      let appendResults = isNextPage;
+
+      const buildQuery = (field: "businessId" | "userId", value: string, last: QueryDocumentSnapshot<DocumentData> | null) =>
+        query(
+          purchasesRef,
+          where(field, "==", value),
+          orderBy("createdAt", "desc"),
+          ...(last ? [startAfter(last)] : []),
+          limit(ITEMS_PER_PAGE)
+        );
+
+      let snap;
+      try {
+        const cursor = appendResults ? lastDocRef.current : null;
+        snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, cursor));
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && businessId) {
+          console.warn("Business-scoped query denied; retrying with userId scope", {
+            collectionName: "purchases",
+            userId: user.uid,
+            businessId,
+          });
+          effectiveScope = { field: "userId", value: user.uid };
+          scopeRef.current = effectiveScope;
+          lastDocRef.current = null;
+          appendResults = false;
+          snap = await getDocs(buildQuery(effectiveScope.field, effectiveScope.value, null));
+        } else {
+          throw err;
+        }
+      }
+      scopeRef.current = effectiveScope;
 
       // Handle "No more data"
       if (snap.empty) {
@@ -90,7 +114,7 @@ export default function PurchaseListPage() {
       }
 
       // Save the last document for the next cursor
-      setLastDoc(snap.docs[snap.docs.length - 1]);
+      lastDocRef.current = snap.docs[snap.docs.length - 1];
       
       if (snap.docs.length < ITEMS_PER_PAGE) {
         setHasMore(false);
@@ -112,7 +136,7 @@ export default function PurchaseListPage() {
       });
 
       // If next page, add to list. If first page, replace list.
-      if (isNextPage) {
+      if (appendResults) {
         setPurchases((prev) => [...prev, ...list]);
       } else {
         setPurchases(list);
@@ -125,12 +149,13 @@ export default function PurchaseListPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [businessId, businessLoading]);
 
   // Initial Load
   useEffect(() => {
+    if (businessLoading) return;
     fetchPurchases(false);
-  }, []);
+  }, [businessLoading, businessId, fetchPurchases]);
 
   /* ---------------------- DELETE PURCHASE ------------------------ */
   const handleDeletePurchase = async (p: Purchase) => {

@@ -1,0 +1,44 @@
+[
+  {
+    "timestamp": "2026-01-13T08:59:35.516Z",
+    "action": "CREATED_BUSINESS",
+    "businessId": "8Mao9bP8dCfL6P4AlZtg",
+    "ownerId": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "name": "Business VXVWLmLV"
+  },
+  {
+    "timestamp": "2026-01-13T08:59:36.564Z",
+    "action": "UPDATED_USER",
+    "userId": "VXVWLmLVJzSQuR1OJ586hR5ttsM2",
+    "businessId": "8Mao9bP8dCfL6P4AlZtg",
+    "isOwner": true
+  },
+  {
+    "timestamp": "2026-01-13T08:59:37.998Z",
+    "action": "CREATED_BUSINESS",
+    "businessId": "u1ANgxcQ0VR989czN48c",
+    "ownerId": "koRVaIXDuxXGxrDZJbbruR4unCi1",
+    "name": "Business koRVaIXD"
+  },
+  {
+    "timestamp": "2026-01-13T08:59:38.352Z",
+    "action": "UPDATED_USER",
+    "userId": "koRVaIXDuxXGxrDZJbbruR4unCi1",
+    "businessId": "u1ANgxcQ0VR989czN48c",
+    "isOwner": true
+  },
+  {
+    "timestamp": "2026-01-13T08:59:39.767Z",
+    "action": "UPDATED_USER",
+    "userId": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "businessId": "bsBp5RodsBWnWGW1JZdM03WbONn2",
+    "isOwner": false
+  },
+  {
+    "timestamp": "2026-01-13T08:59:40.775Z",
+    "action": "UPDATED_USER",
+    "userId": "rz9BnC7jA9RsBQ7xnWFFb9x7q1n1",
+    "businessId": "8Mao9bP8dCfL6P4AlZtg",
+    "isOwner": false
+  }
+]
