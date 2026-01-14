@@ -63,6 +63,7 @@ export default function AddPurchasePage() {
   // UI
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const purchaseId = searchParams.get("id");
   const isEdit = Boolean(purchaseId);
 
@@ -101,13 +102,43 @@ export default function AddPurchasePage() {
   useEffect(() => {
     const loadLastBill = async (userId: string) => {
       try {
-        const q = query(
+        let bizId: string | null = businessId;
+        if (!bizId) {
+          try {
+            const userSnap = await getDoc(doc(db, "users", userId));
+            bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+            setBusinessId(bizId);
+          } catch (e) {
+            console.warn("Could not fetch user profile for businessId", e);
+          }
+        }
+
+        const byBusiness = bizId
+          ? query(
+              collection(db, "purchases"),
+              where("businessId", "==", bizId),
+              orderBy("createdAt", "desc"),
+              limit(1)
+            )
+          : null;
+        const byUser = query(
           collection(db, "purchases"),
           where("userId", "==", userId),
           orderBy("createdAt", "desc"),
           limit(1)
         );
-        const snap = await getDocs(q);
+
+        let snap;
+        try {
+          snap = await getDocs(byBusiness || byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied for purchases, falling back to userId");
+            snap = await getDocs(byUser);
+          } else {
+            throw err;
+          }
+        }
 
         let lastNumber = 0;
         if (!snap.empty) {
@@ -117,8 +148,22 @@ export default function AddPurchasePage() {
           if (!isNaN(num)) lastNumber = num;
         } else {
           // fallback scan
-          const qAll = query(collection(db, "purchases"), where("userId", "==", userId));
-          const snapAll = await getDocs(qAll);
+          const qAll = bizId
+            ? query(collection(db, "purchases"), where("businessId", "==", bizId))
+            : query(collection(db, "purchases"), where("userId", "==", userId));
+
+          let snapAll;
+          try {
+            snapAll = await getDocs(qAll);
+          } catch (err: any) {
+            if (err?.code === "permission-denied" && bizId) {
+              snapAll = await getDocs(
+                query(collection(db, "purchases"), where("userId", "==", userId))
+              );
+            } else {
+              throw err;
+            }
+          }
           snapAll.forEach((d) => {
             const bill = (d.data() as any).billNumber || "";
             const num = parseInt(bill.replace(/\D/g, ""));
@@ -269,6 +314,17 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
         return;
       }
 
+      let bizId: string | null = businessId;
+      if (!bizId) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+          setBusinessId(bizId);
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+      }
+
       // Validate items
       const validItems = items.filter((it) => it.description.trim() || it.amount > 0);
       if (validItems.length === 0) {
@@ -301,6 +357,7 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
           phone: supplierPhone || "",
           userId: user.uid,
           createdAt: serverTimestamp(),
+          ...(bizId ? { businessId: bizId } : {}),
         };
 
         const newRef = await addDoc(collection(db, "suppliers"), newSuppObj);
@@ -328,6 +385,7 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
         userId: user.uid,
         paidAmount: 0,
         createdAt: serverTimestamp(),
+        ...(bizId ? { businessId: bizId } : {}),
       };
 
      if (isEdit && purchaseId) {

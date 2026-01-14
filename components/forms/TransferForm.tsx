@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import Button from "@/components/ui/Button";
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
 
@@ -13,6 +13,7 @@ export default function TransferForm({ onSuccess }: { onSuccess: () => void }) {
   const [toAccount, setToAccount] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
   
   // (Rest of the file logic is same, just copy previous version but change the import and useState default)
   
@@ -43,6 +44,17 @@ export default function TransferForm({ onSuccess }: { onSuccess: () => void }) {
     if (!user) return;
 
     try {
+      let bizId: string | null = businessId;
+      if (!bizId) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+          setBusinessId(bizId);
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+      }
+
       await addDoc(collection(db, "transfers"), {
         userId: user.uid,
         amount: Number(amount),
@@ -51,6 +63,7 @@ export default function TransferForm({ onSuccess }: { onSuccess: () => void }) {
         toAccount,
         description,
         createdAt: serverTimestamp(),
+        ...(bizId ? { businessId: bizId } : {}),
       });
       onSuccess();
     } catch (error) {

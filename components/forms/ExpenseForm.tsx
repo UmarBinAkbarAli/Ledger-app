@@ -5,6 +5,7 @@ import { db, auth } from "@/lib/firebase";
 import {
   addDoc,
   collection,
+  getDoc,
   getDocs,
   query,
   where,
@@ -32,6 +33,8 @@ export default function ExpenseForm({
     new Date().toISOString().slice(0, 10)
   );
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK">("CASH");
   const [bankName, setBankName] = useState("");
@@ -45,12 +48,36 @@ export default function ExpenseForm({
 
   const loadCategories = async () => {
     try {
-      const snap = await getDocs(
-        query(
-          collection(db, "expenseCategories"),
-          where("userId", "==", user.uid)
-        )
+      let bizId: string | null = businessId;
+      if (!bizId) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+          setBusinessId(bizId);
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+      }
+
+      const byBusiness = bizId
+        ? query(collection(db, "expenseCategories"), where("businessId", "==", bizId))
+        : null;
+      const byUser = query(
+        collection(db, "expenseCategories"),
+        where("userId", "==", user.uid)
       );
+
+      let snap;
+      try {
+        snap = await getDocs(byBusiness || byUser);
+      } catch (err: any) {
+        if (err?.code === "permission-denied" && byBusiness) {
+          console.warn("Business scope denied for expense categories, falling back to userId");
+          snap = await getDocs(byUser);
+        } else {
+          throw err;
+        }
+      }
       setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error("Error loading expense categories:", err);
@@ -66,12 +93,36 @@ export default function ExpenseForm({
         const user = auth.currentUser;
         if (!user) return;
 
-        const snap = await getDocs(
-          query(
-            collection(db, "suppliers"),
-            where("userId", "==", user.uid)
-          )
+        let bizId: string | null = businessId;
+        if (!bizId) {
+          try {
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+            setBusinessId(bizId);
+          } catch (e) {
+            console.warn("Could not fetch user profile for businessId", e);
+          }
+        }
+
+        const byBusiness = bizId
+          ? query(collection(db, "suppliers"), where("businessId", "==", bizId))
+          : null;
+        const byUser = query(
+          collection(db, "suppliers"),
+          where("userId", "==", user.uid)
         );
+
+        let snap;
+        try {
+          snap = await getDocs(byBusiness || byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied for suppliers, falling back to userId");
+            snap = await getDocs(byUser);
+          } else {
+            throw err;
+          }
+        }
 
         setSuppliers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -110,23 +161,51 @@ export default function ExpenseForm({
     loadBanks();
   }, []);
 
-  const getOrCreateSupplier = async (
+const getOrCreateSupplier = async (
   name: string,
   userId: string
 ): Promise<string> => {
-  const q = query(
+  let bizId: string | null = businessId;
+  if (!bizId) {
+    try {
+      const userSnap = await getDoc(doc(db, "users", userId));
+      bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+      setBusinessId(bizId);
+    } catch (e) {
+      console.warn("Could not fetch user profile for businessId", e);
+    }
+  }
+
+  const byBusiness = bizId
+    ? query(
+        collection(db, "suppliers"),
+        where("businessId", "==", bizId),
+        where("name", "==", name.trim())
+      )
+    : null;
+  const byUser = query(
     collection(db, "suppliers"),
     where("userId", "==", userId),
     where("name", "==", name.trim())
   );
 
-  const snap = await getDocs(q);
+  let snap;
+  try {
+    snap = await getDocs(byBusiness || byUser);
+  } catch (err: any) {
+    if (err?.code === "permission-denied" && byBusiness) {
+      snap = await getDocs(byUser);
+    } else {
+      throw err;
+    }
+  }
   if (!snap.empty) return snap.docs[0].id;
 
   const ref = await addDoc(collection(db, "suppliers"), {
     name: name.trim(),
     userId,
     createdAt: serverTimestamp(),
+    ...(bizId ? { businessId: bizId } : {}),
   });
 
   return ref.id;
@@ -139,11 +218,23 @@ export default function ExpenseForm({
 
     const savePayment = async (e: any) => {
       e.preventDefault();
+      setError("");
       const user = auth.currentUser;
       if (!user) return;
 
       const finalAmount = Number(amount);
       if (finalAmount <= 0) return;
+
+    let bizId: string | null = businessId;
+    if (!bizId) {
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+        setBusinessId(bizId);
+      } catch (e) {
+        console.warn("Could not fetch user profile for businessId", e);
+      }
+    }
 
     let finalSupplierId = supplierId;
 
@@ -173,6 +264,7 @@ export default function ExpenseForm({
 
       userId: user.uid,
       createdAt: serverTimestamp(),
+      ...(bizId ? { businessId: bizId } : {}),
     });
   }
 
@@ -194,6 +286,7 @@ if (expenseType === "OPERATIONAL") {
     bankName,
     userId: user.uid,
     createdAt: serverTimestamp(),
+    ...(bizId ? { businessId: bizId } : {}),
   });
 }
 
@@ -217,6 +310,7 @@ if (expenseType === "OPERATIONAL") {
   return (
     <form onSubmit={savePayment} className="space-y-4">
       {message && <p className="text-green-600">{message}</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
           <select
         className="w-full border p-2 rounded"

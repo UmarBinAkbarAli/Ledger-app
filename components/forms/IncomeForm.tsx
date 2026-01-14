@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import {
   collection,
+  getDoc,
   getDocs,
   query,
   where,
@@ -28,6 +29,7 @@ export default function IncomeForm({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK">("CASH");
   const [bankName, setBankName] = useState("");
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
@@ -40,11 +42,36 @@ export default function IncomeForm({
         const user = auth.currentUser;
         if (!user) return;
 
-        const q = query(
+        let bizId: string | null = businessId;
+        if (!bizId) {
+          try {
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+            setBusinessId(bizId);
+          } catch (e) {
+            console.warn("Could not fetch user profile for businessId", e);
+          }
+        }
+
+        const byBusiness = bizId
+          ? query(collection(db, "customers"), where("businessId", "==", bizId))
+          : null;
+        const byUser = query(
           collection(db, "customers"),
           where("userId", "==", user.uid)
         );
-        const snap = await getDocs(q);
+
+        let snap;
+        try {
+          snap = await getDocs(byBusiness || byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied for customers, falling back to userId");
+            snap = await getDocs(byUser);
+          } else {
+            throw err;
+          }
+        }
 
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         list.sort((a: any, b: any) =>
@@ -98,6 +125,17 @@ export default function IncomeForm({
       const customer = customerList.find((c) => c.id === selectedCustomer);
       if (!customer) throw new Error("Invalid customer");
 
+      let bizId: string | null = businessId;
+      if (!bizId) {
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
+          setBusinessId(bizId);
+        } catch (e) {
+          console.warn("Could not fetch user profile for businessId", e);
+        }
+      }
+
       const payAmount = Number(amount);
       if (payAmount <= 0) throw new Error("Invalid amount");
 
@@ -117,6 +155,7 @@ export default function IncomeForm({
         notes,
         userId: user.uid,
         createdAt: serverTimestamp(),
+        ...(bizId ? { businessId: bizId } : {}),
       });
 
       setMessage("Payment added successfully");
