@@ -13,9 +13,6 @@ export interface AdminVerificationResult {
   decodedToken: DecodedIdToken;
 }
 
-const adminAuth = getAdminAuth();
-const adminDb = getAdminFirestore();
-
 export function extractBearerToken(request: NextRequest): string | null {
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -38,7 +35,11 @@ async function resolveBusinessId(
   return decodedToken.uid;
 }
 
-async function verifyAdmin(decodedToken: DecodedIdToken): Promise<AdminVerificationResult> {
+async function verifyAdmin(
+  adminAuth: ReturnType<typeof getAdminAuth>,
+  adminDb: ReturnType<typeof getAdminFirestore>,
+  decodedToken: DecodedIdToken
+): Promise<AdminVerificationResult> {
   // Fast path: custom claims
   if (decodedToken.admin === true || decodedToken.role === UserRole.ADMIN) {
     const businessId = await resolveBusinessId(decodedToken);
@@ -81,6 +82,9 @@ async function verifyAdmin(decodedToken: DecodedIdToken): Promise<AdminVerificat
 export async function requireAdmin(
   request: NextRequest
 ): Promise<{ result?: AdminVerificationResult; errorResponse?: NextResponse }> {
+  const adminAuth = getAdminAuth();
+  const adminDb = getAdminFirestore();
+
   const idToken = extractBearerToken(request);
   if (!idToken) {
     return {
@@ -104,7 +108,7 @@ export async function requireAdmin(
     };
   }
 
-  const adminResult = await verifyAdmin(decodedToken);
+  const adminResult = await verifyAdmin(adminAuth, adminDb, decodedToken);
   if (!adminResult.isAdmin) {
     return {
       errorResponse: NextResponse.json(

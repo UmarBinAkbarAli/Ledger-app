@@ -21,9 +21,6 @@ import { logAuditEventServer, AuditAction, createAuditDetails } from "@/lib/audi
 import { requireAdmin } from "@/lib/adminAuth";
 import { applyRateLimit } from "@/lib/rateLimiter";
 
-const adminAuth = getAdminAuth();
-const adminDb = getAdminFirestore();
-
 interface CreateUserRequest {
   email: string;
   displayName: string;
@@ -49,6 +46,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
   let resetLink: string | null = null;
 
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminFirestore();
+
     logger.info("📨 POST /api/users/create called");
 
     const rateLimitResponse = await applyRateLimit(request, 4);

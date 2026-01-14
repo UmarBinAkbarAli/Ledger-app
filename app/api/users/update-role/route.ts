@@ -16,9 +16,6 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { applyRateLimit } from "@/lib/rateLimiter";
 import { isSameTenant, resolveTargetTenantInfo } from "@/lib/tenantAccess";
 
-const adminAuth = getAdminAuth();
-const adminDb = getAdminFirestore();
-
 interface UpdateRoleRequest {
   uid: string;
   role: UserRole;
@@ -32,6 +29,9 @@ interface UpdateRoleResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminFirestore();
+
     logger.info("📨 POST /api/users/update-role called");
 
     const rateLimitResponse = await applyRateLimit(request, 2);

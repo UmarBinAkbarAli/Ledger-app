@@ -11,9 +11,6 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { applyRateLimit } from "@/lib/rateLimiter";
 import { isSameTenant, resolveTargetTenantInfo } from "@/lib/tenantAccess";
 
-const adminAuth = getAdminAuth();
-const adminDb = getAdminFirestore();
-
 interface AuthUser {
   uid: string;
   email: string;
@@ -26,6 +23,9 @@ interface AuthUser {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminFirestore();
+
     logger.info("📨 GET /api/users/list-auth called");
 
     const rateLimitResponse = await applyRateLimit(request, 1);

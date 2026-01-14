@@ -6,30 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
 import { UserRole, DEFAULT_ROLE } from "@/lib/roles";
 import { UserStatus } from "@/lib/userSchema";
-
-// Initialize Firebase Admin SDK (only once)
-const apps = getApps();
-let adminApp = apps.find((app) => app?.name === "default");
-
-if (!adminApp) {
-  const serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  };
-
-  adminApp = initializeApp({
-    credential: cert(serviceAccount as any),
-  });
-}
-
-const adminAuth = getAuth(adminApp);
-const adminDb = getFirestore(adminApp);
+import { getAdminAuth, getAdminFirestore } from "@/lib/firebaseAdmin";
 
 interface CreateUserRequest {
   email: string;
@@ -50,6 +29,9 @@ interface CreateUserResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<CreateUserResponse>> {
   try {
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminFirestore();
+
     // Get the ID token from Authorization header
     const authHeader = request.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {

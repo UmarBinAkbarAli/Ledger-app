@@ -10,8 +10,6 @@
 import { getAdminFirestore } from './firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
-const adminDb = getAdminFirestore();
-
 export enum AuditAction {
   USER_CREATED = 'USER_CREATED',
   USER_UPDATED = 'USER_UPDATED',
@@ -59,6 +57,8 @@ export async function logAuditEventServer(
   }
 ): Promise<void> {
   try {
+    const adminDb = getAdminFirestore();
+
     const logEntry: AuditLogEntry = {
       action,
       actorUid,
@@ -131,4 +131,3 @@ export function createAuditDetails(
     errorMessage,
   };
 }
-
