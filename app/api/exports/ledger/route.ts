@@ -6,9 +6,6 @@ import { exportLedger } from "@/lib/csvUtils";
 import { hasPermission, Permission, UserRole } from "@/lib/roles";
 import { zipSync, strToU8 } from "fflate";
 
-const adminAuth = getAdminAuth();
-const adminDb = getAdminFirestore();
-
 const sanitizeFileName = (name: string) => {
   const trimmed = name.trim();
   const safe = trimmed.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
@@ -29,7 +26,7 @@ const ensureUniqueFileName = (base: string, used: Set<string>) => {
   return candidate;
 };
 
-async function resolveBusinessId(uid: string, tokenBusinessId?: string) {
+async function resolveBusinessId(adminDb: ReturnType<typeof getAdminFirestore>, uid: string, tokenBusinessId?: string) {
   if (tokenBusinessId) return tokenBusinessId;
   const userDoc = await adminDb.collection("users").doc(uid).get();
   if (userDoc.exists) {
@@ -40,6 +37,8 @@ async function resolveBusinessId(uid: string, tokenBusinessId?: string) {
 }
 
 async function requireExportAccess(request: NextRequest) {
+  const adminAuth = getAdminAuth();
+  const adminDb = getAdminFirestore();
   const idToken = extractBearerToken(request);
   if (!idToken) {
     return {
@@ -75,6 +74,7 @@ async function requireExportAccess(request: NextRequest) {
     }
 
     const businessId = await resolveBusinessId(
+      adminDb,
       decodedToken.uid,
       decodedToken.businessId as string | undefined
     );
@@ -93,6 +93,7 @@ async function requireExportAccess(request: NextRequest) {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const adminDb = getAdminFirestore();
     const access = await requireExportAccess(request);
     if ("errorResponse" in access && access.errorResponse) {
       return access.errorResponse;
