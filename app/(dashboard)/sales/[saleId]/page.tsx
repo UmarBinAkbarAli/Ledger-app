@@ -49,7 +49,7 @@ export default function SaleInvoicePage() {
         {/* SHARE BUTTON COMPONENT */}
         <ShareButton
           title={`Invoice ${sale.billNumber || saleId}`}
-          text={`Hello ${sale.customerName || ""},\nHere is your invoice #${sale.billNumber || saleId} for ${fmt(total)}.\nDate: ${sale.date}`}
+          text={`Hello ${sale.customerCompany || sale.customerName || ""},\nHere is your invoice #${sale.billNumber || saleId} for ${fmt(total)}.\nDate: ${sale.date}`}
           url={`${typeof window !== "undefined" ? window.location.origin : ""}/sales/${saleId}`}
         />
         
@@ -104,8 +104,11 @@ export default function SaleInvoicePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <div className="bg-blue-800 text-black px-3 py-2 leading-[1.4] text-sm font-semibold mb-2">BILL TO</div>
-              {sale.customerCompany && <div className="text-sm font-semibold">{sale.customerCompany}</div>}
-              <div className="text-sm">{sale.customerName}</div>
+              {sale.customerCompany ? (
+                <div className="text-sm font-semibold">{sale.customerCompany}</div>
+              ) : sale.customerName ? (
+                <div className="text-sm font-semibold">{sale.customerName}</div>
+              ) : null}
               {sale.customerAddress && <div className="text-sm">{sale.customerAddress}</div>}
               {sale.customerPhone && <div className="text-sm">Phone: {sale.customerPhone}</div>}
               {sale.customerChNo && <div className="text-sm">CH No: {sale.customerChNo}</div>}

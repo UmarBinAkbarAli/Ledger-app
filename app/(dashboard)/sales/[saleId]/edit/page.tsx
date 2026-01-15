@@ -87,25 +87,27 @@ export default function EditSalePage() {
     loadCustomers();
   }, []);
 
-  // FILTER customers by typed name
+  // FILTER companies (fallback to name when company is empty)
   useEffect(() => {
-    if (!customerName.trim()) {
+    if (!customerCompany.trim()) {
       setFilteredCustomers([]);
       return;
     }
 
-    const s = customerName.toLowerCase();
-    const filtered = customers.filter((c) =>
-      (c.name || "").toLowerCase().includes(s)
-    );
+    const s = customerCompany.toLowerCase();
+    const filtered = customers.filter((c) => {
+      const company = (c.company || "").toLowerCase();
+      const name = (c.name || "").toLowerCase();
+      return company.includes(s) || (!company && name.includes(s));
+    });
 
     setFilteredCustomers(filtered);
-  }, [customerName, customers]);
+  }, [customerCompany, customers]);
 
   const handleSelectCustomer = (c: any) => {
     setCustomerId(c.id);
     setCustomerName(c.name);
-    setCustomerCompany(c.company || "");
+    setCustomerCompany(c.company || c.name || "");
     setCustomerAddress(c.address || "");
     setCustomerPhone(c.phone || "");
     setCustomerChNo(c.chNo || "");
@@ -130,7 +132,7 @@ export default function EditSalePage() {
 
         setCustomerId(data.customerId || "");
         setCustomerName(data.customerName || "");
-        setCustomerCompany(data.customerCompany || "");
+        setCustomerCompany(data.customerCompany || data.customerName || "");
         setCustomerAddress(data.customerAddress || "");
         setCustomerPhone(data.customerPhone || "");
         setCustomerChNo(data.customerChNo || "");
@@ -211,10 +213,20 @@ export default function EditSalePage() {
         return;
       }
 
+      if (!customerId) {
+        setMessage("Please select a company.");
+        setLoading(false);
+        return;
+      }
+
+      const selectedCustomer = customers.find((c) => c.id === customerId);
+      const effectiveName = selectedCustomer?.name || customerName || "";
+      const effectiveCompany = selectedCustomer ? (selectedCustomer.company || "") : (customerCompany || "");
+
       await updateDoc(doc(db, "sales", saleId as string), {
         customerId,
-        customerName,
-        customerCompany,
+        customerName: effectiveName,
+        customerCompany: effectiveCompany,
         customerAddress,
         customerPhone,
         customerChNo,
@@ -305,19 +317,24 @@ export default function EditSalePage() {
         {/* ======================= CUSTOMER INFO ======================= */}
         <section>
           <div className="bg-blue-900 text-white px-4 py-2 rounded-t-md font-semibold">
-            Bill To (Customer Information)
+            Bill To (Company Information)
           </div>
 
           <div className="border border-gray-200 p-5 rounded-b-md bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Searchable Customer Dropdown */}
+            {/* Company (searchable) */}
             <div className="md:col-span-1 relative">
               <input
                 type="text"
-                placeholder="Customer Name"
+                placeholder="Company"
                 className="border border-gray-300 p-2 rounded w-full"
-                value={customerName}
+                value={customerCompany}
                 onChange={(e) => {
-                  setCustomerName(e.target.value);
+                  setCustomerCompany(e.target.value);
+                  setCustomerName("");
+                  setCustomerId("");
+                  setCustomerAddress("");
+                  setCustomerPhone("");
+                  setCustomerChNo("");
                   setShowDropdown(true);
                 }}
                 onFocus={() => setShowDropdown(true)}
@@ -333,23 +350,12 @@ export default function EditSalePage() {
                       onClick={() => handleSelectCustomer(c)}
                       className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
                     >
-                      <span className="font-semibold">{c.name}</span>
-                      {c.company && (
-                        <span className="text-xs text-gray-500">{c.company}</span>
-                      )}
+                      <span className="font-semibold">{c.company || c.name || "-"}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-
-            <input
-              type="text"
-              placeholder="Company Name"
-              className="border border-gray-300 p-2 rounded"
-              value={customerCompany}
-              onChange={(e) => setCustomerCompany(e.target.value)}
-            />
 
             <input
               type="text"

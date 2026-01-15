@@ -57,6 +57,7 @@ body {
 
   .ledger-print-header {
     page-break-inside: avoid;
+    display: block !important;
   }
 
   @page {

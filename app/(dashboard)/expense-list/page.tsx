@@ -20,6 +20,7 @@ type ExpenseItem = {
   id: string;
   supplierId: string;
   supplierName: string;
+  supplierCompany?: string;
   billNumber: string;
   amount: number;
   date: string;
@@ -122,6 +123,7 @@ export default function ExpenseListPage() {
           id: d.id,
           supplierId: dd.supplierId || "",
           supplierName: dd.supplierName || "",
+          supplierCompany: dd.supplierCompany || "",
           billNumber: dd.billNumber || "",
           amount: Number(dd.amount || 0),
           date: dd.date || "",
@@ -223,7 +225,7 @@ export default function ExpenseListPage() {
   <div>
     <input
       type="text"
-      placeholder="Search supplier, bill, amount..."
+      placeholder="Search company, bill, amount..."
       className="w-64 p-2 border rounded"
       value={search}
       onChange={(e) => setSearch(e.target.value)}
@@ -252,7 +254,7 @@ export default function ExpenseListPage() {
           <table className="min-w-full">
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-3 text-left">Supplier</th>
+                <th className="p-3 text-left">Company</th>
                 <th className="p-3 text-left">Bill No</th>
                 <th className="p-3 text-right">Amount</th>
                 <th className="p-3 text-left">Date</th>
@@ -265,8 +267,11 @@ export default function ExpenseListPage() {
   .filter((e) => {
     // Search logic
     const q = search.toLowerCase();
+    const company = (e.supplierCompany || "").toLowerCase();
+    const name = (e.supplierName || "").toLowerCase();
     const matchesSearch =
-      e.supplierName.toLowerCase().includes(q) ||
+      company.includes(q) ||
+      (!company && name.includes(q)) ||
       e.billNumber.toLowerCase().includes(q) ||
       String(e.amount).includes(q) ||
       e.date.toLowerCase().includes(q);
@@ -284,7 +289,7 @@ export default function ExpenseListPage() {
   })
               .map((e) => (
                 <tr key={e.id} className="border-t">
-                  <td className="p-3">{e.supplierName}</td>
+                  <td className="p-3">{e.supplierCompany || e.supplierName || "-"}</td>
                   <td className="p-3">{e.billNumber}</td>
                   <td className="p-3 text-right">
                     {e.amount.toLocaleString()}

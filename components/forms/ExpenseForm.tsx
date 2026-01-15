@@ -24,6 +24,7 @@ export default function ExpenseForm({
   const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [supplierName, setSupplierName] = useState("");
+  const [supplierCompany, setSupplierCompany] = useState("");
   const [expenseType, setExpenseType] = useState<"SUPPLIER" | "OPERATIONAL">("SUPPLIER");
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -124,7 +125,13 @@ export default function ExpenseForm({
           }
         }
 
-        setSuppliers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => {
+          const aLabel = (a.company || a.name || "").toString();
+          const bLabel = (b.company || b.name || "").toString();
+          return aLabel.localeCompare(bLabel);
+        });
+        setSuppliers(list);
       } catch (err) {
         console.error("Error loading suppliers:", err);
       }
@@ -134,16 +141,19 @@ export default function ExpenseForm({
   }, []);
 
   useEffect(() => {
-    if (!supplierName.trim()) {
+    if (!supplierCompany.trim()) {
       setFilteredSuppliers([]);
       return;
     }
+    const s = supplierCompany.toLowerCase();
     setFilteredSuppliers(
-      suppliers.filter((s) =>
-        (s.name || "").toLowerCase().includes(supplierName.toLowerCase())
-      )
+      suppliers.filter((sup) => {
+        const company = (sup.company || "").toLowerCase();
+        const name = (sup.name || "").toLowerCase();
+        return company.includes(s) || (!company && name.includes(s));
+      })
     );
-  }, [supplierName, suppliers]);
+  }, [supplierCompany, suppliers]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -160,56 +170,6 @@ export default function ExpenseForm({
 
     loadBanks();
   }, []);
-
-const getOrCreateSupplier = async (
-  name: string,
-  userId: string
-): Promise<string> => {
-  let bizId: string | null = businessId;
-  if (!bizId) {
-    try {
-      const userSnap = await getDoc(doc(db, "users", userId));
-      bizId = userSnap.exists() ? userSnap.data()?.businessId ?? null : null;
-      setBusinessId(bizId);
-    } catch (e) {
-      console.warn("Could not fetch user profile for businessId", e);
-    }
-  }
-
-  const byBusiness = bizId
-    ? query(
-        collection(db, "suppliers"),
-        where("businessId", "==", bizId),
-        where("name", "==", name.trim())
-      )
-    : null;
-  const byUser = query(
-    collection(db, "suppliers"),
-    where("userId", "==", userId),
-    where("name", "==", name.trim())
-  );
-
-  let snap;
-  try {
-    snap = await getDocs(byBusiness || byUser);
-  } catch (err: any) {
-    if (err?.code === "permission-denied" && byBusiness) {
-      snap = await getDocs(byUser);
-    } else {
-      throw err;
-    }
-  }
-  if (!snap.empty) return snap.docs[0].id;
-
-  const ref = await addDoc(collection(db, "suppliers"), {
-    name: name.trim(),
-    userId,
-    createdAt: serverTimestamp(),
-    ...(bizId ? { businessId: bizId } : {}),
-  });
-
-  return ref.id;
-};
 
   // NOTE: We don't need to manually update petty cash or bank balances
   // because the Petty Cash and Bank pages calculate balances from transactions
@@ -236,25 +196,23 @@ const getOrCreateSupplier = async (
       }
     }
 
-    let finalSupplierId = supplierId;
-
-  if (!finalSupplierId && supplierName.trim()) {
-    finalSupplierId = await getOrCreateSupplier(
-      supplierName,
-      user.uid
-    );
-  }
-
   // SUPPLIER EXPENSE → expenses collection
   if (expenseType === "SUPPLIER") {
-    if (!finalSupplierId) {
-      alert("Supplier is required");
+    if (!supplierId) {
+      alert("Company is required");
+      return;
+    }
+
+    const selectedSupplier = suppliers.find((s) => s.id === supplierId);
+    if (!selectedSupplier) {
+      alert("Please select a valid company");
       return;
     }
 
     await addDoc(collection(db, "expenses"), {
-      supplierId: finalSupplierId,
-      supplierName: supplierName.trim(),
+      supplierId: supplierId,
+      supplierName: selectedSupplier.name || "",
+      supplierCompany: selectedSupplier.company || "",
 
       amount: finalAmount,
       date,
@@ -295,6 +253,7 @@ if (expenseType === "OPERATIONAL") {
       setSupplierId("");
       setMessage("Payment added");
       setSupplierName("");
+      setSupplierCompany("");
       setSupplierId("");
       setAmount("");
       setNotes("");
@@ -327,11 +286,13 @@ if (expenseType === "OPERATIONAL") {
   <>
     <input
       type="text"
-      placeholder="Supplier"
+      placeholder="Company"
       className="w-full border p-2 rounded"
-      value={supplierName}
+      value={supplierCompany}
       onChange={(e) => {
-        setSupplierName(e.target.value);
+        setSupplierCompany(e.target.value);
+        setSupplierName("");
+        setSupplierId("");
         setShowDropdown(true);
       }}
     />
@@ -345,11 +306,12 @@ if (expenseType === "OPERATIONAL") {
             className="block w-full text-left p-2 hover:bg-gray-100"
             onClick={() => {
               setSupplierId(s.id);
-              setSupplierName(s.name);
+              setSupplierName(s.name || "");
+              setSupplierCompany(s.company || s.name || "");
               setShowDropdown(false);
             }}
           >
-            {s.name}
+            {s.company || s.name || "-"}
           </button>
         ))}
       </div>

@@ -22,6 +22,7 @@ interface ChallanData {
   customerName: string;
   customerCompany: string;
   customerAddress: string;
+  customerNote?: string;
   items: ChallanItem[];
   totalQuantity: number;
   status: string;
@@ -61,6 +62,7 @@ export default function ViewChallanPage() {
           customerName: data.customerName || "",
           customerCompany: data.customerCompany || "",
           customerAddress: data.customerAddress || "",
+          customerNote: data.customerNote || "",
           items: data.items || [],
           totalQuantity: data.totalQuantity || 0,
           status: data.status || "pending",
@@ -233,6 +235,9 @@ export default function ViewChallanPage() {
             <p><strong>M/S:</strong> {challan.customerCompany || challan.customerName}</p>
             <p><strong>ADDRESS:</strong> {challan.customerAddress || "N/A"}</p>
             <p><strong>P.O.NO.:</strong> {challan.poNumber || "N/A"}</p>
+            {challan.customerNote?.trim() ? (
+              <p><strong>NOTE:</strong> {challan.customerNote.trim()}</p>
+            ) : null}
           </div>
         </div>
 
@@ -308,6 +313,9 @@ export default function ViewChallanPage() {
                     <div><strong>M/S:</strong> {challan.customerCompany || challan.customerName}</div>
                     <div><strong>ADDRESS:</strong> {challan.customerAddress || 'N/A'}</div>
                     <div><strong>P.O.NO.:</strong> {challan.poNumber || 'N/A'}</div>
+                    {challan.customerNote?.trim() ? (
+                      <div><strong>NOTE:</strong> {challan.customerNote.trim()}</div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -391,4 +399,3 @@ export default function ViewChallanPage() {
     </div>
   );
 }
-

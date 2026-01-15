@@ -31,6 +31,7 @@ export default function EditDeliveryChallanPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerCompany, setCustomerCompany] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerNote, setCustomerNote] = useState("");
   const [status, setStatus] = useState("pending");
 
   // Items
@@ -99,8 +100,9 @@ export default function EditDeliveryChallanPage() {
           setPoNumber(data.poNumber || "");
           setSelectedCustomerId(data.customerId || "");
           setCustomerName(data.customerName || "");
-          setCustomerCompany(data.customerCompany || "");
+          setCustomerCompany(data.customerCompany || data.customerName || "");
           setCustomerAddress(data.customerAddress || "");
+          setCustomerNote(data.customerNote || "");
           setStatus(data.status || "pending");
           setItems(data.items || [{ description: "", qty: 1 }]);
         }
@@ -121,7 +123,7 @@ export default function EditDeliveryChallanPage() {
     const customer = customers.find((c) => c.id === customerId);
     if (customer) {
       setCustomerName(customer.name);
-      setCustomerCompany(customer.company);
+      setCustomerCompany(customer.company || customer.name || "");
       setCustomerAddress(customer.address);
     }
   };
@@ -154,7 +156,7 @@ export default function EditDeliveryChallanPage() {
     setMessage("");
 
     if (!selectedCustomerId) {
-      setError("Please select a customer");
+      setError("Please select a company");
       return;
     }
 
@@ -174,15 +176,21 @@ export default function EditDeliveryChallanPage() {
       const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
+      const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+      const effectiveName = selectedCustomer?.name || customerName || "";
+      const effectiveCompany = selectedCustomer ? (selectedCustomer.company || "") : (customerCompany || "");
+      const effectiveAddress = selectedCustomer?.address || customerAddress || "";
+
       const challanData = {
         challanNumber,
         date,
         vehicle: vehicle.trim(),
         poNumber: poNumber.trim(),
         customerId: selectedCustomerId,
-        customerName,
-        customerCompany,
-        customerAddress,
+        customerName: effectiveName,
+        customerCompany: effectiveCompany,
+        customerAddress: effectiveAddress,
+        customerNote: customerNote.trim(),
         items: items.map((item) => ({
           description: item.description.trim(),
           qty: Number(item.qty || 0),
@@ -286,13 +294,13 @@ export default function EditDeliveryChallanPage() {
           </div>
         </section>
 
-        {/* Customer Details */}
+        {/* Company Details */}
         <section className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4 text-text-primary">Customer Details</h2>
+          <h2 className="text-lg font-semibold mb-4 text-text-primary">Company Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Customer <span className="text-red-500">*</span>
+                Select Company <span className="text-red-500">*</span>
               </label>
               <select
                 className="w-full border border-gray-300 p-2 rounded"
@@ -300,10 +308,10 @@ export default function EditDeliveryChallanPage() {
                 onChange={(e) => handleCustomerChange(e.target.value)}
                 required
               >
-                <option value="">-- Select Customer --</option>
+                <option value="">-- Select Company --</option>
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
-                    {customer.company || customer.name}
+                    {customer.company || customer.name || "-"}
                   </option>
                 ))}
               </select>
@@ -320,6 +328,18 @@ export default function EditDeliveryChallanPage() {
                 onChange={(e) => setPoNumber(e.target.value)}
               />
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company Note (optional)
+            </label>
+            <input
+              type="text"
+              className="w-full border border-gray-300 p-2 rounded"
+              placeholder="Note to show on challan print"
+              value={customerNote}
+              onChange={(e) => setCustomerNote(e.target.value)}
+            />
           </div>
 
           {selectedCustomerId && (
@@ -423,4 +443,3 @@ export default function EditDeliveryChallanPage() {
     </div>
   );
 }
-

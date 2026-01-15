@@ -82,7 +82,7 @@ export default function AddPurchasePage() {
 
     setSupplierId(d.supplierId || "");
     setSupplierName(d.supplierName || "");
-    setSupplierCompany(d.supplierCompany || "");
+    setSupplierCompany(d.supplierCompany || d.supplierName || "");
     setSupplierAddress(d.supplierAddress || "");
     setSupplierPhone(d.supplierPhone || "");
     setBillNumber(d.billNumber || "");
@@ -242,7 +242,7 @@ export default function AddPurchasePage() {
     if (found) {
       setSupplierId(found.id);
       setSupplierName(found.name || found.supplierName || "");
-      setSupplierCompany(found.company || found.supplierCompany || "");
+      setSupplierCompany(found.company || found.supplierCompany || found.name || found.supplierName || "");
       setSupplierAddress(found.address || found.supplierAddress || "");
       setSupplierPhone(found.phone || found.supplierPhone || "");
       setShowDropdown(false);
@@ -251,19 +251,23 @@ export default function AddPurchasePage() {
 
   // Supplier dropdown filter
   useEffect(() => {
-    if (!supplierName.trim()) {
+    if (!supplierCompany.trim()) {
       setFilteredSuppliers([]);
       return;
     }
-    const s = supplierName.toLowerCase();
-    const filtered = suppliers.filter((c) => (c.name || "").toLowerCase().includes(s));
+    const s = supplierCompany.toLowerCase();
+    const filtered = suppliers.filter((c) => {
+      const company = (c.company || c.supplierCompany || "").toLowerCase();
+      const name = (c.name || c.supplierName || "").toLowerCase();
+      return company.includes(s) || (!company && name.includes(s));
+    });
     setFilteredSuppliers(filtered);
-  }, [supplierName, suppliers]);
+  }, [supplierCompany, suppliers]);
 
   const handleSelectSupplier = (c: any) => {
     setSupplierId(c.id);
     setSupplierName(c.name || c.supplierName || "");
-    setSupplierCompany(c.company || c.supplierCompany || "");
+    setSupplierCompany(c.company || c.supplierCompany || c.name || c.supplierName || "");
     setSupplierAddress(c.address || c.supplierAddress || "");
     setSupplierPhone(c.phone || c.supplierPhone || "");
     setShowDropdown(false);
@@ -333,47 +337,33 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
         return;
       }
 
-      const typedName = (supplierName || "").trim();
-      if (!typedName) {
-        setMessage("Please provide a supplier name.");
+      const typedCompany = (supplierCompany || "").trim();
+      if (!typedCompany) {
+        setMessage("Please select a company.");
         setLoading(false);
         return;
       }
 
-      // Try to find an existing supplier (case-insensitive)
-      const exists = suppliers.find(
-        (c) => (c.name || c.supplierName || "").toString().trim().toLowerCase() === typedName.toLowerCase()
-      );
+      if (!supplierId) {
+        setMessage("Please select a company from the list.");
+        setLoading(false);
+        return;
+      }
 
-      // finalSupplierId will be used in purchase object
-      let finalSupplierId = supplierId || (exists ? exists.id : "");
-
-      // If no supplierId and not found => create new supplier doc BEFORE saving purchase
-      if (!finalSupplierId) {
-        const newSuppObj = {
-          name: typedName,
-          company: supplierCompany || "",
-          address: supplierAddress || "",
-          phone: supplierPhone || "",
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-          ...(bizId ? { businessId: bizId } : {}),
-        };
-
-        const newRef = await addDoc(collection(db, "suppliers"), newSuppObj);
-        finalSupplierId = newRef.id;
-
-        setSupplierId(finalSupplierId);
-        setSuppliers((prev) => [{ id: finalSupplierId, ...newSuppObj }, ...prev]);
+      const selectedSupplier = suppliers.find((s) => s.id === supplierId);
+      if (!selectedSupplier) {
+        setMessage("Please select a valid company.");
+        setLoading(false);
+        return;
       }
 
       // Build purchase object
       const purchaseObj: any = {
-        supplierId: finalSupplierId,
-        supplierName: typedName,
-        supplierCompany,
-        supplierAddress,
-        supplierPhone,
+        supplierId: selectedSupplier.id,
+        supplierName: selectedSupplier.name || selectedSupplier.supplierName || "",
+        supplierCompany: selectedSupplier.company || selectedSupplier.supplierCompany || "",
+        supplierAddress: selectedSupplier.address || selectedSupplier.supplierAddress || supplierAddress,
+        supplierPhone: selectedSupplier.phone || selectedSupplier.supplierPhone || supplierPhone,
         billNumber,
         date,
         poNumber,
@@ -444,19 +434,22 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
           </div>
         </section>
 
-        {/* SUPPLIER INFO */}
+        {/* COMPANY INFO */}
         <section>
-          <div className="bg-blue-900 text-white px-4 py-2 rounded-t-md font-semibold">Supplier Information</div>
+          <div className="bg-blue-900 text-white px-4 py-2 rounded-t-md font-semibold">Company Information</div>
           <div className="border border-gray-200 p-5 rounded-b-md bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Searchable Supplier Dropdown */}
+            {/* Searchable Company Dropdown */}
             <div className="md:col-span-1 relative">
               <input
                 type="text"
-                placeholder="Supplier Name"
+                placeholder="Company"
                 className="border border-gray-300 p-2 rounded w-full"
-                value={supplierName}
+                value={supplierCompany}
                 onChange={(e) => {
-                  setSupplierName(e.target.value);
+                  setSupplierCompany(e.target.value);
+                  setSupplierName("");
+                  setSupplierAddress("");
+                  setSupplierPhone("");
                   setShowDropdown(true);
                   setSupplierId(""); // clear id if user types manually
                 }}
@@ -467,15 +460,13 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
                 <div className="absolute z-20 bg-white border border-gray-300 rounded mt-1 w-full max-h-40 overflow-y-auto shadow-lg">
                   {filteredSuppliers.map((c) => (
                     <button key={c.id} type="button" onClick={() => handleSelectSupplier(c)} className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100">
-                      <span className="font-semibold">{c.name}</span>
-                      {c.company && <span className="text-xs text-gray-500">{c.company}</span>}
+                      <span className="font-semibold">{c.company || c.supplierCompany || c.name || c.supplierName || "-"}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <input type="text" placeholder="Company Name" className="border border-gray-300 p-2 rounded" value={supplierCompany} onChange={(e) => setSupplierCompany(e.target.value)} />
             <input type="text" placeholder="Phone" className="border border-gray-300 p-2 rounded" value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)} />
             <input type="text" placeholder="Address" className="border border-gray-300 p-2 rounded md:col-span-2" value={supplierAddress} onChange={(e) => setSupplierAddress(e.target.value)} />
             <input type="text" placeholder="CH No" className="border border-gray-300 p-2 rounded" value={chNo} onChange={(e) => setChNo(e.target.value)}

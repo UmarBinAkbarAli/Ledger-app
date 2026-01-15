@@ -203,7 +203,7 @@ export default function PurchaseListPage() {
 
         <input
           type="text"
-          placeholder="Search bill, supplier, amount..."
+          placeholder="Search bill, company, amount..."
           className="w-72 p-2 border rounded"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -215,7 +215,7 @@ export default function PurchaseListPage() {
         <table className="min-w-full">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 text-left">Supplier</th>
+              <th className="p-3 text-left">Company</th>
               <th className="p-3 text-left">Bill #</th>
               <th className="p-3 text-right">Total</th>
               <th className="p-3 text-right">Paid</th>
@@ -230,9 +230,11 @@ export default function PurchaseListPage() {
               .filter((p) => {
                 const q = search.toLowerCase();
 
+                const company = (p.supplierCompany || "").toLowerCase();
+                const name = (p.supplierName || "").toLowerCase();
                 const matchSearch =
-                  p.supplierName.toLowerCase().includes(q) ||
-                  (p.supplierCompany || "").toLowerCase().includes(q) ||
+                  company.includes(q) ||
+                  (!company && name.includes(q)) ||
                   p.billNumber.toLowerCase().includes(q) ||
                   String(p.total).includes(q);
 
@@ -251,7 +253,7 @@ export default function PurchaseListPage() {
 
                 return (
                   <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.supplierCompany || p.supplierName}</td>
+                    <td className="p-3">{p.supplierCompany || p.supplierName || "-"}</td>
                     <td className="p-3">{p.billNumber}</td>
                     <td className="p-3 text-right">{p.total.toLocaleString()}</td>
                     <td className="p-3 text-right">{p.paidAmount.toLocaleString()}</td>

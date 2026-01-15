@@ -144,8 +144,8 @@ export default function DeliveryChallanListPage() {
       filtered = filtered.filter(
         (c) =>
           c.challanNumber.toLowerCase().includes(search.toLowerCase()) ||
-          c.customerName.toLowerCase().includes(search.toLowerCase()) ||
           c.customerCompany.toLowerCase().includes(search.toLowerCase()) ||
+          (!c.customerCompany && c.customerName.toLowerCase().includes(search.toLowerCase())) ||
           c.vehicle.toLowerCase().includes(search.toLowerCase())
       );
     }
@@ -253,7 +253,7 @@ export default function DeliveryChallanListPage() {
       <div className="bg-white p-4 rounded-lg shadow-sm mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <input
           type="text"
-          placeholder="Search by challan no, customer, vehicle..."
+          placeholder="Search by challan no, company, vehicle..."
           className="border border-gray-300 p-2 rounded"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -287,7 +287,7 @@ export default function DeliveryChallanListPage() {
                 </th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">Challan No</th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">Date</th>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700">Customer</th>
+                <th className="p-3 text-left text-sm font-semibold text-gray-700">Company</th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">Vehicle</th>
                 <th className="p-3 text-right text-sm font-semibold text-gray-700">Total Qty</th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700">Status</th>
@@ -321,10 +321,7 @@ export default function DeliveryChallanListPage() {
                       <td className="p-3 font-medium text-primary">{challan.challanNumber}</td>
                     <td className="p-3 text-sm">{challan.date}</td>
                     <td className="p-3">
-                      <div className="text-sm font-medium">{challan.customerCompany || challan.customerName}</div>
-                      {challan.customerCompany && (
-                        <div className="text-xs text-gray-500">{challan.customerName}</div>
-                      )}
+                      <div className="text-sm font-medium">{challan.customerCompany || challan.customerName || "-"}</div>
                     </td>
                     <td className="p-3 text-sm">{challan.vehicle}</td>
                     <td className="p-3 text-right font-semibold">{challan.totalQuantity.toLocaleString()}</td>

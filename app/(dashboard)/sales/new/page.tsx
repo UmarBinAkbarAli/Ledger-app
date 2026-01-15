@@ -47,12 +47,10 @@ export default function AddSalePage() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerChNo, setCustomerChNo] = useState("");
-  // Customer dropdown states
-const [customers, setCustomers] = useState<any[]>([]);
-const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
-const [showDropdown, setShowDropdown] = useState(false);
-const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
-const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  // Company dropdown states
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
 // If coming from customer ledger, read saleCustomerId
 const searchParams = useSearchParams();
@@ -230,7 +228,7 @@ useEffect(() => {
   if (found) {
     setCustomerId(found.id);
     setCustomerName(found.name);
-    setCustomerCompany(found.company || "");
+    setCustomerCompany(found.company || found.name || "");
     setCustomerAddress(found.address || "");
     setCustomerPhone(found.phone || "");
     setCustomerChNo(found.chNo || "");
@@ -328,7 +326,7 @@ useEffect(() => {
       // Set customer info from first challan
       setCustomerId(firstChallanData.customerId || "");
       setCustomerName(firstChallanData.customerName || "");
-      setCustomerCompany(firstChallanData.customerCompany || "");
+      setCustomerCompany(firstChallanData.customerCompany || firstChallanData.customerName || "");
       setCustomerAddress(firstChallanData.customerAddress || "");
       setCustomerPhone(firstChallanData.customerPhone || "");
       setCustomerChNo(firstChallanData.customerChNo || "");
@@ -364,22 +362,7 @@ useEffect(() => {
   loadChallansFromUrl();
 }, [challanIdsParam]);
 
-// Filter customers real-time
-useEffect(() => {
-  if (!customerName.trim()) {
-    setFilteredCustomers([]);
-    return;
-  }
-
-  const s = customerName.toLowerCase();
-  const filtered = customers.filter((c) =>
-    c.name.toLowerCase().includes(s)
-  );
-
-  setFilteredCustomers(filtered);
-}, [customerName, customers]);
-
-// Filter companies real-time
+// Filter companies real-time (fallback to name when company is empty)
 useEffect(() => {
   if (!customerCompany.trim()) {
     setFilteredCompanies([]);
@@ -387,9 +370,11 @@ useEffect(() => {
   }
 
   const s = customerCompany.toLowerCase();
-  const filtered = customers.filter((c) =>
-    (c.company || "").toLowerCase().includes(s)
-  );
+  const filtered = customers.filter((c) => {
+    const company = (c.company || "").toLowerCase();
+    const name = (c.name || "").toLowerCase();
+    return company.includes(s) || (!company && name.includes(s));
+  });
 
   setFilteredCompanies(filtered);
 }, [customerCompany, customers]);
@@ -397,12 +382,11 @@ useEffect(() => {
 const handleSelectCustomer = (c: any) => {
   setCustomerId(c.id); // ⭐ REQUIRED
   setCustomerName(c.name);
-  setCustomerCompany(c.company || "");
+  setCustomerCompany(c.company || c.name || "");
   setCustomerAddress(c.address || "");
   setCustomerPhone(c.phone || "");
   setCustomerChNo(c.chNo || "");
 
-  setShowDropdown(false);
   setShowCompanyDropdown(false);
 
   // Reset challan selection when customer changes
@@ -526,41 +510,24 @@ const handleSubmit = async (e: any) => {
       return;
     }
 
-    const typedName = (customerName || "").trim();
-    if (!typedName) {
-      setMessage("Please provide a customer name.");
+    const typedCompany = (customerCompany || "").trim();
+    if (!typedCompany) {
+      setMessage("Please select a company.");
       setLoading(false);
       return;
     }
 
-    // Try to find existing customer (case-insensitive)
-    const exists = customers.find(
-      (c) => (c.name || "").toString().trim().toLowerCase() === typedName.toLowerCase()
-    );
+    if (!customerId) {
+      setMessage("Please select a company from the list.");
+      setLoading(false);
+      return;
+    }
 
-    // finalCustomerId will be used in sale object
-    let finalCustomerId = customerId || (exists ? exists.id : "");
-
-    // If no customerId and not found, create new customer BEFORE saving sale
-    if (!finalCustomerId) {
-      const newCustObj = {
-        name: typedName,
-        company: customerCompany || "",
-        address: customerAddress || "",
-        phone: customerPhone || "",
-        chNo: customerChNo || "",
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-        ...(bizId ? { businessId: bizId } : {}),
-      };
-
-      const newCustRef = await addDoc(collection(db, "customers"), newCustObj);
-      finalCustomerId = newCustRef.id;
-
-      // update UI state so subsequent actions know this customer
-      setCustomerId(finalCustomerId);
-      // add to local customers list (so dropdown updates)
-      setCustomers((prev) => [{ id: finalCustomerId, ...newCustObj }, ...prev]);
+    const selectedCustomer = customers.find((c) => c.id === customerId);
+    if (!selectedCustomer) {
+      setMessage("Please select a valid company.");
+      setLoading(false);
+      return;
     }
 
     // Get selected challan details
@@ -569,11 +536,11 @@ const handleSubmit = async (e: any) => {
     );
     const challanNumbers = selectedChallans.map((ch) => ch.challanNumber);
 
-    // Build sale object using finalCustomerId (guaranteed)
+    // Build sale object using selected customer (guaranteed)
     const saleObj: any = {
-      customerId: finalCustomerId,     // <- important
-      customerName: typedName,
-      customerCompany,
+      customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name || customerName || "",
+      customerCompany: selectedCustomer.company || "",
       customerAddress,
       customerPhone,
       customerChNo,
@@ -707,55 +674,26 @@ const handleSubmit = async (e: any) => {
 {/* ======================= CUSTOMER INFO ======================= */}
           <section>
             <div className="bg-blue-900 text-white px-4 py-2 rounded-t-md font-semibold">
-              Bill To (Customer Information)
+              Bill To (Company Information)
             </div>
 
             <div className="border border-gray-200 p-5 rounded-b-md bg-gray-50 grid grid-cols-1 md:grid-cols-3 gap-4">
-
-              {/* Searchable Customer Dropdown */}
+              {/* Company (searchable) */}
               <div className="md:col-span-1 relative">
                 <input
                   type="text"
-                  placeholder="Customer Name"
-                  className="border border-gray-300 p-2 rounded w-full"
-                  value={customerName}
-                  onChange={(e) => {
-                    setCustomerName(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                  required
-                />
-
-                {/* Dropdown */}
-                {showDropdown && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 bg-white border border-gray-300 rounded mt-1 w-full max-h-40 overflow-y-auto shadow-lg">
-                    {filteredCustomers.map((c) => (
-                      <button
-                        type="button"
-                        key={c.id}
-                        onClick={() => handleSelectCustomer(c)}
-                        className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
-                      >
-                        <span className="font-semibold">{c.name}</span>
-                        {c.company && (
-                          <span className="text-xs text-gray-500">{c.company}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Company */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Company Name"
+                  placeholder="Company"
                   className="border border-gray-300 p-2 rounded w-full"
                   value={customerCompany}
-                  onChange={(e) => { setCustomerCompany(e.target.value); setShowCompanyDropdown(true); setCustomerId(""); }}
+                  onChange={(e) => {
+                    setCustomerCompany(e.target.value);
+                    setCustomerName("");
+                    setCustomerAddress("");
+                    setCustomerId("");
+                    setShowCompanyDropdown(true);
+                  }}
                   onFocus={() => setShowCompanyDropdown(true)}
+                  required
                 />
 
                 {/* Company Dropdown */}
@@ -768,8 +706,7 @@ const handleSubmit = async (e: any) => {
                         onClick={() => handleSelectCompany(c)}
                         className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
                       >
-                        <span className="font-semibold">{c.company || '-'}</span>
-                        <span className="text-xs text-gray-500">{c.name}</span>
+                        <span className="font-semibold">{c.company || c.name || "-"}</span>
                       </button>
                     ))}
                   </div>

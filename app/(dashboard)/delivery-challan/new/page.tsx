@@ -31,6 +31,7 @@ export default function NewDeliveryChallanPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerCompany, setCustomerCompany] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerNote, setCustomerNote] = useState("");
 
   // Items
   const [items, setItems] = useState<Item[]>([
@@ -41,10 +42,6 @@ export default function NewDeliveryChallanPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Customer[]>([]);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
-
-  // Customer search dropdown (like Sales invoice)
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -154,21 +151,13 @@ export default function NewDeliveryChallanPage() {
     }
 
     const s = customerCompany.toLowerCase();
-    const filtered = customers.filter((c) => (c.company || "").toLowerCase().includes(s));
+    const filtered = customers.filter((c) => {
+      const company = (c.company || "").toLowerCase();
+      const name = (c.name || "").toLowerCase();
+      return company.includes(s) || (!company && name.includes(s));
+    });
     setFilteredCompanies(filtered);
   }, [customerCompany, customers]);
-
-  // Filter customers real-time (search by customer name)
-  useEffect(() => {
-    if (!customerName.trim()) {
-      setFilteredCustomers([]);
-      return;
-    }
-
-    const s = customerName.toLowerCase();
-    const filtered = customers.filter((c) => (c.name || "").toLowerCase().includes(s));
-    setFilteredCustomers(filtered);
-  }, [customerName, customers]);
 
   // Handle customer selection by id (used when selecting from company dropdown too)
   const handleCustomerChange = (customerId: string) => {
@@ -176,21 +165,10 @@ export default function NewDeliveryChallanPage() {
     const customer = customers.find((c) => c.id === customerId);
     if (customer) {
       setCustomerName(customer.name);
-      setCustomerCompany(customer.company);
+      setCustomerCompany(customer.company || customer.name);
       setCustomerAddress(customer.address);
     }
     // Close dropdowns when selecting
-    setShowCompanyDropdown(false);
-    setShowDropdown(false);
-  };
-
-  // Select customer from name search dropdown
-  const handleSelectCustomer = (c: Customer) => {
-    setSelectedCustomerId(c.id);
-    setCustomerName(c.name);
-    setCustomerCompany(c.company);
-    setCustomerAddress(c.address);
-    setShowDropdown(false);
     setShowCompanyDropdown(false);
   };
 
@@ -238,10 +216,8 @@ export default function NewDeliveryChallanPage() {
     const userBusinessId = userDoc.exists() ? (userDoc.data()?.businessId ?? null) : null;
     const businessIdForWrite = userBusinessId ? userBusinessId : user.uid; // legacy users use uid as tenant
 
-    // Allow typed customer name and create customer if it doesn't exist (like Sales)
-    const typedName = (customerName || "").trim();
-    if (!typedName) {
-      setError("Please provide a customer");
+    if (!selectedCustomerId) {
+      setError("Please select a company from the list");
       return;
     }
 
@@ -250,45 +226,10 @@ export default function NewDeliveryChallanPage() {
       return;
     }
 
-    // Ensure we have a customer ID (create if needed)
-    let finalCustomerId = selectedCustomerId;
-    if (!finalCustomerId) {
-      const exists = customers.find(
-        (c) => (c.name || "").toString().trim().toLowerCase() === typedName.toLowerCase()
-      );
-
-      if (exists) {
-        finalCustomerId = exists.id;
-        setSelectedCustomerId(exists.id);
-      } else {
-        // create new customer
-        const newCustObj = {
-          name: typedName,
-          company: customerCompany || "",
-          address: customerAddress || "",
-          phone: "",
-          businessId: businessIdForWrite,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        };
-
-        // Catch permission errors when creating customer so they don't bubble as uncaught promises
-        let newRef;
-        try {
-          newRef = await addDoc(collection(db, "customers"), newCustObj);
-        } catch (err: any) {
-          if (err?.code === "permission-denied") {
-            console.error("Permission denied creating customer", { authedUser: user.uid, businessIdForWrite, message: err.message });
-            setError("Permission denied: your account cannot create a customer for this business. Please contact your administrator.");
-            return;
-          }
-          throw err;
-        }
-
-        finalCustomerId = newRef.id;
-        setSelectedCustomerId(finalCustomerId);
-        setCustomers((prev) => [{ id: finalCustomerId, ...newCustObj }, ...prev]);
-      }
+    const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+    if (!selectedCustomer) {
+      setError("Please select a valid company");
+      return;
     }
 
     if (items.some((item) => !item.description.trim())) {
@@ -301,16 +242,6 @@ export default function NewDeliveryChallanPage() {
     try {
       if (!user) throw new Error("Not authenticated");
 
-      // Ensure the new customer (if created above) has the correct businessId
-      if (!finalCustomerId && customerName && !selectedCustomerId) {
-        // we created a customer during this submit flow; ensure its businessId aligns
-        // Find the created customer in the local list (by matching name + address)
-        const created = customers.find((c) => c.name === customerName && c.address === customerAddress);
-        if (created) {
-          finalCustomerId = created.id;
-        }
-      }
-
       const challanData = {
         userId: user.uid,
         businessId: businessIdForWrite,
@@ -318,10 +249,11 @@ export default function NewDeliveryChallanPage() {
         date,
         vehicle: vehicle.trim(),
         poNumber: poNumber.trim(),
-        customerId: finalCustomerId || selectedCustomerId,
-        customerName,
-        customerCompany,
-        customerAddress,
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name || "",
+        customerCompany: selectedCustomer.company || "",
+        customerAddress: selectedCustomer.address || "",
+        customerNote: customerNote.trim(),
         items: items.map((item) => ({
           description: item.description.trim(),
           qty: Number(item.qty || 0),
@@ -423,53 +355,29 @@ export default function NewDeliveryChallanPage() {
           </div>
         </section>
 
-        {/* Customer Details */}
+        {/* Company Details */}
         <section className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4 text-text-primary">Customer Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customer Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 p-2 rounded"
-                placeholder="Search or type customer name"
-                value={customerName}
-                onChange={(e) => { setCustomerName(e.target.value); setShowDropdown(true); setSelectedCustomerId(""); }}
-                onFocus={() => setShowDropdown(true)}
-                required
-              />
-
-              {showDropdown && filteredCustomers.length > 0 && (
-                <div className="absolute z-20 bg-white border border-gray-300 rounded mt-1 w-full max-h-40 overflow-y-auto shadow-lg">
-                  {filteredCustomers.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handleSelectCustomer(c)}
-                      className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
-                    >
-                      <span className="font-semibold">{c.name}</span>
-                      {c.company && <span className="text-xs text-gray-500">{c.company}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
+          <h2 className="text-lg font-semibold mb-4 text-text-primary">Company Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Company (searchable) */}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company
+                Company <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 className="w-full border border-gray-300 p-2 rounded"
-                placeholder="Search Company"
+                placeholder="Search company (or name)"
                 value={customerCompany}
-                onChange={(e) => { setCustomerCompany(e.target.value); setShowCompanyDropdown(true); setSelectedCustomerId(""); }}
+                onChange={(e) => {
+                  setCustomerCompany(e.target.value);
+                  setCustomerName("");
+                  setCustomerAddress("");
+                  setSelectedCustomerId("");
+                  setShowCompanyDropdown(true);
+                }}
                 onFocus={() => setShowCompanyDropdown(true)}
+                required
               />
 
               {showCompanyDropdown && filteredCompanies.length > 0 && (
@@ -481,8 +389,7 @@ export default function NewDeliveryChallanPage() {
                       onClick={() => handleSelectCompany(c)}
                       className="flex flex-col items-start w-full text-left px-3 py-2 hover:bg-blue-100"
                     >
-                      <span className="font-semibold">{c.company || '-'}</span>
-                      <span className="text-xs text-gray-500">{c.name}</span>
+                      <span className="font-semibold">{c.company || c.name || "-"}</span>
                     </button>
                   ))}
                 </div>
@@ -501,6 +408,18 @@ export default function NewDeliveryChallanPage() {
                 onChange={(e) => setPoNumber(e.target.value)}
               />
             </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company Note (optional)
+            </label>
+            <input
+              type="text"
+              className="w-full border border-gray-300 p-2 rounded"
+              placeholder="Note to show on challan print"
+              value={customerNote}
+              onChange={(e) => setCustomerNote(e.target.value)}
+            />
           </div>
 
           {selectedCustomerId && (
@@ -604,4 +523,3 @@ export default function NewDeliveryChallanPage() {
     </div>
   );
 }
-

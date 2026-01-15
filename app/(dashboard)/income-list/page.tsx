@@ -11,6 +11,7 @@ type IncomeItem = {
   id: string;
   customerId: string;
   customerName: string;
+  customerCompany?: string;
   amount: number;
   date: string;
 };
@@ -38,6 +39,7 @@ export default function IncomeListPage() {
       id,
       customerId: data.customerId || "",
       customerName: data.customerName || "",
+      customerCompany: data.customerCompany || "",
       amount: Number(data.amount || 0),
       date: finalDate,
     };
@@ -143,7 +145,7 @@ export default function IncomeListPage() {
         {/* Search */}
         <input
           type="text"
-          placeholder="Search customer, amount, date..."
+          placeholder="Search company, amount, date..."
           className="w-64 p-2 border rounded"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -173,7 +175,7 @@ export default function IncomeListPage() {
           <table className="min-w-full">
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-3 text-left">Customer</th>
+                <th className="p-3 text-left">Company</th>
                 <th className="p-3 text-right">Amount</th>
                 <th className="p-3 text-left">Date</th>
                 <th className="p-3 text-left">Actions</th>
@@ -184,10 +186,13 @@ export default function IncomeListPage() {
               {displayIncomeList
                 .filter((i) => {
                   const q = search.toLowerCase();
+                  const company = (i.customerCompany || "").toLowerCase();
+                  const name = (i.customerName || "").toLowerCase();
 
                   // Search
                   const matchesSearch =
-                    i.customerName.toLowerCase().includes(q) ||
+                    company.includes(q) ||
+                    (!company && name.includes(q)) ||
                     String(i.amount).includes(q) ||
                     (i.date || "").toLowerCase().includes(q);
 
@@ -203,7 +208,7 @@ export default function IncomeListPage() {
                 })
                 .map((i) => (
                   <tr key={i.id} className="border-t">
-                    <td className="p-3">{i.customerName}</td>
+                    <td className="p-3">{i.customerCompany || i.customerName || "-"}</td>
 
                     <td className="p-3 text-right">
                       {i.amount.toLocaleString()}

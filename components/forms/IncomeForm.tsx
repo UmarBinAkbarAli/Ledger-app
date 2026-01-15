@@ -74,9 +74,11 @@ export default function IncomeForm({
         }
 
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        list.sort((a: any, b: any) =>
-          (a.name || "").localeCompare(b.name || "")
-        );
+        list.sort((a: any, b: any) => {
+          const aLabel = (a.company || a.name || "").toString();
+          const bLabel = (b.company || b.name || "").toString();
+          return aLabel.localeCompare(bLabel);
+        });
 
         setCustomerList(list);
       } catch (err) {
@@ -146,7 +148,8 @@ export default function IncomeForm({
       await setDoc(doc(collection(db, "income")), {
         saleId: "",
         customerId: customer.id,
-        customerName: customer.name,
+        customerName: customer.name || "",
+        customerCompany: customer.company || "",
         billNumber: "",
         amount: payAmount,
         date: finalDate,
@@ -183,10 +186,10 @@ export default function IncomeForm({
         onChange={(e) => setSelectedCustomer(e.target.value)}
         required
       >
-        <option value="">Select Customer</option>
+        <option value="">Select Company</option>
         {customerList.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name}
+            {c.company || c.name || "-"}
           </option>
         ))}
       </select>

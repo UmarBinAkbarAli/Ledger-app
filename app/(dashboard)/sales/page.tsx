@@ -128,7 +128,7 @@ export default function SalesListPage() {
         <div>
           <input
             type="text"
-            placeholder="Search customer, bill, amount..."
+            placeholder="Search company, bill, amount..."
             className="w-72 p-2 border rounded"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -141,7 +141,7 @@ export default function SalesListPage() {
         <table className="min-w-full">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 text-left">Customer</th>
+              <th className="p-3 text-left">Company</th>
               <th className="p-3 text-left">Bill No</th>
               <th className="p-3 text-right">Bill Amount</th>
               <th className="p-3 text-right">Paid</th>
@@ -156,9 +156,11 @@ export default function SalesListPage() {
               .filter((s) => {
                 const q = search.toLowerCase();
 
+                const company = (s.customerCompany || "").toLowerCase();
+                const name = (s.customerName || "").toLowerCase();
                 const matchSearch =
-                  s.customerName.toLowerCase().includes(q) ||
-                  (s.customerCompany || "").toLowerCase().includes(q) ||
+                  company.includes(q) ||
+                  (!company && name.includes(q)) ||
                   s.billNumber.toLowerCase().includes(q) ||
                   String(s.total).includes(q);
 
@@ -177,7 +179,7 @@ export default function SalesListPage() {
 
                 return (
                   <tr key={s.id} className="border-t">
-                    <td className="p-3">{s.customerCompany || s.customerName}</td>
+                    <td className="p-3">{s.customerCompany || s.customerName || "-"}</td>
                     <td className="p-3">{s.billNumber}</td>
                     <td className="p-3 text-right">{s.total.toLocaleString()}</td>
                     <td className="p-3 text-right">{s.paidAmount.toLocaleString()}</td>
