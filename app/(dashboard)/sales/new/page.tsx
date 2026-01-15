@@ -232,7 +232,6 @@ useEffect(() => {
     setCustomerAddress(found.address || "");
     setCustomerPhone(found.phone || "");
     setCustomerChNo(found.chNo || "");
-    setShowDropdown(false);
   }
 }, [saleCustomerId, customers]);
 
