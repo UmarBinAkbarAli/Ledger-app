@@ -91,14 +91,14 @@ export default function ViewChallanPage() {
     let html = "";
 
     // Shared print CSS to vertically distribute content and show a tear line between copies
-    const twoUpCSS = `@page{size:A4;margin:10mm;} body{margin:0;padding:0} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:6mm;box-sizing:border-box;page-break-inside:avoid;display:flex;flex-direction:column;justify-content:space-between;min-height:135mm;font-family: Arial, Helvetica, sans-serif;} .tear-line{width:190mm;margin:6mm auto;border-top:1px dashed #000;display:flex;align-items:center;justify-content:center;} .tear-line span{background:#fff;padding:0 6px;font-size:10px;} .print-copy *{font-size:11px}`;
+    const twoUpCSS = `@page{size:A4;margin:12mm 10mm 15mm 10mm;} body{margin:0;padding:0} .print-root{transform:scale(0.97);transform-origin:top center;} .print-copy{box-sizing:border-box;width:190mm;margin:0 auto;border:2px solid #000;padding:5mm;box-sizing:border-box;page-break-inside:avoid;display:flex;flex-direction:column;justify-content:space-between;min-height:125mm;font-family: Arial, Helvetica, sans-serif;} .tear-line{width:190mm;margin:3mm auto;border-top:1px dashed #000;display:flex;align-items:center;justify-content:center;} .tear-line span{background:#fff;padding:0 6px;font-size:9px;} .print-copy *{font-size:10px}`;
 
     if (printTemplate) {
-      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body>` + printTemplate.innerHTML + `</body></html>`;
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body><div class="print-root">` + printTemplate.innerHTML + `</div></body></html>`;
     } else {
       // fallback: use the visible PDF area
       const pdfArea = document.getElementById("pdf-area");
-      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body>` + (pdfArea ? pdfArea.innerHTML : "") + `</body></html>`;
+      html = `<!doctype html><html><head><title>Delivery Challan</title><meta charset='utf-8' /><style>${twoUpCSS}</style></head><body><div class="print-root">` + (pdfArea ? pdfArea.innerHTML : "") + `</div></body></html>`;
     }
 
     printWindow.document.open();
@@ -296,7 +296,7 @@ export default function ViewChallanPage() {
         <div style={{ width: '190mm', margin: '0 auto' }}>
           {[0,1].map((i) => (
             <div key={i}>
-              <div className="print-copy" style={{ border: '2px solid #000', padding: '6mm', marginBottom: i === 0 ? '6mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '135mm' }}>
+              <div className="print-copy" style={{ border: '2px solid #000', padding: '5mm', marginBottom: i === 0 ? '3mm' : '0', boxSizing: 'border-box', pageBreakInside: 'avoid', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '125mm' }}>
                 {/* Header */}
                 <div style={{ borderBottom: '0px solid transparent', paddingBottom: '4px', marginBottom: '4px' }}>
                   <PrintableChallanHeader />
@@ -320,26 +320,26 @@ export default function ViewChallanPage() {
                 </div>
 
                 {/* Items */}
-                <div style={{ border: '1px solid #000', marginTop: 6 }}>
-                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                <div style={{ marginTop: 6 }}>
+                  <table style={{ width: '100%', fontSize: 10, borderCollapse: 'collapse', border: '1px solid #000' }}>
                     <thead>
                       <tr>
-                        <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left', width: 50 }}>S. NO</th>
-                        <th style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'left' }}>DESCRIPTION</th>
-                        <th style={{ padding: 6, textAlign: 'center', width: 80 }}>QUANTITY</th>
+                        <th style={{ borderRight: '1px solid #000', padding: 5, textAlign: 'left', width: 50 }}>S. NO</th>
+                        <th style={{ borderRight: '1px solid #000', padding: 5, textAlign: 'left' }}>DESCRIPTION</th>
+                        <th style={{ padding: 5, textAlign: 'center', width: 80 }}>QUANTITY</th>
                       </tr>
                     </thead>
                     <tbody>
                       {challan.items.map((item, idx) => (
                         <tr key={idx} style={{ borderTop: '1px solid #000' }}>
-                          <td style={{ borderRight: '1px solid #000', padding: 6, textAlign: 'center' }}>{idx + 1}</td>
-                          <td style={{ borderRight: '1px solid #000', padding: 6 }}>{item.description}</td>
-                          <td style={{ padding: 6, textAlign: 'center', fontWeight: 700 }}>{item.qty.toLocaleString()}</td>
+                          <td style={{ borderRight: '1px solid #000', padding: 5, textAlign: 'center' }}>{idx + 1}</td>
+                          <td style={{ borderRight: '1px solid #000', padding: 5 }}>{item.description}</td>
+                          <td style={{ padding: 5, textAlign: 'center', fontWeight: 700 }}>{item.qty.toLocaleString()}</td>
                         </tr>
                       ))}
-                      <tr>
-                        <td colSpan={2} style={{ padding: 6 }}></td>
-                        <td style={{ padding: 6, textAlign: 'center', fontSize: 13, fontWeight: 700 }}>{challan.totalQuantity.toLocaleString()}</td>
+                      <tr style={{ borderTop: '1px solid #000', borderBottom: '1px solid #000' }}>
+                        <td colSpan={2} style={{ padding: 5 }}></td>
+                        <td style={{ padding: 5, textAlign: 'center', fontSize: 12, fontWeight: 700 }}>{challan.totalQuantity.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -382,15 +382,12 @@ export default function ViewChallanPage() {
           }
 
           /* Enforce A4 and small margins */
-          @page {
-            size: A4;
-            margin: 10mm;
-          }
+          @page { size: A4; margin: 12mm 10mm 15mm 10mm; }
 
           /* Utility classes for print-only layout */
           .print-hidden { display: none !important; }
           .print-only { display: block !important; width: 190mm; margin: 0 auto; }
-          .print-copy { page-break-inside: avoid; margin-bottom: 6mm; }
+          .print-copy { page-break-inside: avoid; margin-bottom: 3mm; }
 
           /* Reduce font sizes slightly to fit two copies */
           .print-copy, .print-copy * { font-size: 11px !important; }

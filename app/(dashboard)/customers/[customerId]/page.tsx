@@ -383,17 +383,9 @@ export default function CustomerLedgerPage(): JSX.Element {
       {/* HEADER */}
       <div className="flex items-center justify-between mb-4 print:hidden">
                     <div>
-              {/* Company name = primary */}
               <h2 className="text-xl font-bold">
                 {customer?.company || customer?.name || "Customer"}
               </h2>
-
-              {/* Person name = secondary */}
-              {customer?.company && (
-                <p className="text-sm text-gray-600">
-                  {customer?.name}
-                </p>
-              )}
 
               <p className="text-sm text-gray-600">
                 Phone: {customer?.phone ?? ""}
@@ -504,12 +496,6 @@ export default function CustomerLedgerPage(): JSX.Element {
       <div className="font-bold text-base">
         {customer?.company || customer?.name}
       </div>
-
-      {customer?.company && (
-        <div>
-          {customer?.name}
-        </div>
-      )}
 
       <div className="mt-1">
         Date: {fromDate} → {toDate}
