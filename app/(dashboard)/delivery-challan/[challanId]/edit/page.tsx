@@ -331,7 +331,7 @@ export default function EditDeliveryChallanPage() {
           </div>
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Company Note (optional)
+              Special Note (optional)
             </label>
             <input
               type="text"

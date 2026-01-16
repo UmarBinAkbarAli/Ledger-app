@@ -236,7 +236,7 @@ export default function ViewChallanPage() {
             <p><strong>ADDRESS:</strong> {challan.customerAddress || "N/A"}</p>
             <p><strong>P.O.NO.:</strong> {challan.poNumber || "N/A"}</p>
             {challan.customerNote?.trim() ? (
-              <p><strong>NOTE:</strong> {challan.customerNote.trim()}</p>
+              <p><strong>Delivered to:</strong> {challan.customerNote.trim()}</p>
             ) : null}
           </div>
         </div>
@@ -314,7 +314,7 @@ export default function ViewChallanPage() {
                     <div><strong>ADDRESS:</strong> {challan.customerAddress || 'N/A'}</div>
                     <div><strong>P.O.NO.:</strong> {challan.poNumber || 'N/A'}</div>
                     {challan.customerNote?.trim() ? (
-                      <div><strong>NOTE:</strong> {challan.customerNote.trim()}</div>
+                      <div><strong>Delivered to:</strong> {challan.customerNote.trim()}</div>
                     ) : null}
                   </div>
                 </div>
