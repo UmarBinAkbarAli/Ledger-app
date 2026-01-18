@@ -33,6 +33,7 @@ export default function EditDeliveryChallanPage() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const [status, setStatus] = useState("pending");
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   // Items
   const [items, setItems] = useState<Item[]>([
@@ -55,11 +56,28 @@ export default function EditDeliveryChallanPage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        const q = query(
-          collection(db, "customers"),
-          where("userId", "==", user.uid)
-        );
-        const snap = await getDocs(q);
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        setBusinessId(bizId);
+
+        const byBusiness = bizId
+          ? query(collection(db, "customers"), where("businessId", "==", bizId))
+          : null;
+        const byUser = query(collection(db, "customers"), where("userId", "==", user.uid));
+
+        let snap;
+        try {
+          snap = byBusiness ? await getDocs(byBusiness) : await getDocs(byUser);
+        } catch (err: any) {
+          if (err?.code === "permission-denied" && byBusiness) {
+            console.warn("Business scope denied loading customers; retrying with userId scope", { authedUser: user.uid, businessId: bizId });
+            snap = await getDocs(byUser);
+            setMessage("Limited view: only your personal customers are shown because your account lacks business-level read access.");
+            setTimeout(() => setMessage(""), 6000);
+          } else {
+            throw err;
+          }
+        }
 
         const list: Customer[] = snap.docs.map((d) => ({
           id: d.id,
@@ -117,6 +135,28 @@ export default function EditDeliveryChallanPage() {
     loadChallan();
   }, [challanId]);
 
+  // Auto-resolve customerId for legacy challans that only stored name/company
+  useEffect(() => {
+    if (selectedCustomerId || customers.length === 0) return;
+    const normalize = (v: string) => v.trim().toLowerCase();
+    const targetCompany = normalize(customerCompany);
+    const targetName = normalize(customerName);
+    if (!targetCompany && !targetName) return;
+
+    const matched = customers.find((c) => {
+      const company = normalize(c.company || "");
+      const name = normalize(c.name || "");
+      return (targetCompany && company === targetCompany) || (!targetCompany && targetName && name === targetName);
+    });
+
+    if (matched) {
+      setSelectedCustomerId(matched.id);
+      setCustomerName(matched.name);
+      setCustomerCompany(matched.company || matched.name || "");
+      setCustomerAddress(matched.address || "");
+    }
+  }, [selectedCustomerId, customers, customerCompany, customerName]);
+
   // Handle customer selection
   const handleCustomerChange = (customerId: string) => {
     setSelectedCustomerId(customerId);
@@ -155,11 +195,6 @@ export default function EditDeliveryChallanPage() {
     setError("");
     setMessage("");
 
-    if (!selectedCustomerId) {
-      setError("Please select a company");
-      return;
-    }
-
     if (!vehicle.trim()) {
       setError("Please enter vehicle details");
       return;
@@ -176,17 +211,34 @@ export default function EditDeliveryChallanPage() {
       const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
-      const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
-      const effectiveName = selectedCustomer?.name || customerName || "";
-      const effectiveCompany = selectedCustomer ? (selectedCustomer.company || "") : (customerCompany || "");
-      const effectiveAddress = selectedCustomer?.address || customerAddress || "";
+      const normalize = (v: string) => v.trim().toLowerCase();
+      let selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+      if (!selectedCustomer) {
+        const targetCompany = normalize(customerCompany);
+        const targetName = normalize(customerName);
+        selectedCustomer = customers.find((c) => {
+          const company = normalize(c.company || "");
+          const name = normalize(c.name || "");
+          return (targetCompany && company === targetCompany) || (!targetCompany && targetName && name === targetName);
+        });
+      }
+
+      if (!selectedCustomer) {
+        setError("Please select a company");
+        setSaving(false);
+        return;
+      }
+
+      const effectiveName = selectedCustomer.name || customerName || "";
+      const effectiveCompany = selectedCustomer.company || customerCompany || "";
+      const effectiveAddress = selectedCustomer.address || customerAddress || "";
 
       const challanData = {
         challanNumber,
         date,
         vehicle: vehicle.trim(),
         poNumber: poNumber.trim(),
-        customerId: selectedCustomerId,
+        customerId: selectedCustomer.id,
         customerName: effectiveName,
         customerCompany: effectiveCompany,
         customerAddress: effectiveAddress,

@@ -516,12 +516,6 @@ const handlePDF = async () => {
                   supplier.supplierName}
               </h2>
 
-              {/* Person name = secondary */}
-              {(supplier.company || supplier.supplierCompany) && (
-                <p className="text-sm text-gray-600">
-                  {supplier.name || supplier.supplierName}
-                </p>
-              )}
             </div>
 
         <div className="flex gap-2">
@@ -582,7 +576,7 @@ const handlePDF = async () => {
       </div>
 
 
-      <div id="pdf-area" className="bg-white rounded shadow overflow-auto">
+      <div id="pdf-area" className="bg-white rounded shadow overflow-auto ledger-export-area">
 
             {/* PRINT HEADER */}
       <div className="ledger-print-header hidden print:block mb-6">
@@ -613,12 +607,6 @@ const handlePDF = async () => {
                 supplier.supplierName}
             </div>
 
-            {(supplier.company || supplier.supplierCompany) && (
-              <div>
-                {supplier.name || supplier.supplierName}
-              </div>
-            )}
-
             <div className="mt-1">
               Date: {fromDate} → {toDate}
             </div>
@@ -626,7 +614,7 @@ const handlePDF = async () => {
         </div>
       </div>
 
-        <table className="w-full print:text-[11px] print:leading-tight">
+        <table className="ledger-export-table w-full print:text-[11px] print:leading-tight">
          <thead className="bg-gray-100">
                 <tr>
                   <th className="p-2 text-left">Date</th>

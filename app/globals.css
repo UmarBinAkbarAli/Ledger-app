@@ -31,6 +31,24 @@ body {
 .ledger-print-header {
   color: #000;
 }
+/* Show ledger headers in PDF export */
+.pdf-export .ledger-print-header {
+  display: block !important;
+}
+/* PDF export tweaks for wide ledger tables */
+.pdf-export .ledger-export-area {
+  overflow: visible !important;
+}
+.pdf-export .ledger-export-table {
+  width: 100%;
+}
+.pdf-export .ledger-export-table th,
+.pdf-export .ledger-export-table td {
+  padding: 4px 6px !important;
+  font-size: 10px !important;
+  white-space: normal;
+  word-break: break-word;
+}
 /* PDF / Browser view */
 .pdf-area {
   width: 100%;
