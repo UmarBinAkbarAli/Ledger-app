@@ -349,7 +349,11 @@ if (expenseType === "OPERATIONAL") {
         className="w-full border p-2 rounded"
         value={paymentMethod}
         onChange={(e) =>
-          setPaymentMethod(e.target.value as "CASH" | "BANK")
+          setPaymentMethod(() => {
+            const next = e.target.value as "CASH" | "BANK";
+            if (next === "CASH") setBankName("");
+            return next;
+          })
         }
       >
         <option value="CASH">Cash</option>
