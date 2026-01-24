@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-21T09:09:35.775Z",
+  "collections": {
+    "users": [],
+    "businesses": [],
+    "customers": [],
+    "suppliers": [],
+    "sales": [],
+    "purchases": [],
+    "income": [],
+    "expenses": [],
+    "operationalExpenses": [],
+    "transfers": [],
+    "expenseCategories": [],
+    "pettyCashOpening": [],
+    "deliveryChallans": [],
+    "auditLogs": []
+  }
+}

@@ -6,7 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { UserStatus } from "@/lib/userSchema";
-import { DEFAULT_ROLE } from "@/lib/roles";
+import { DEFAULT_ROLE, UserRole } from "@/lib/roles";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,6 +29,8 @@ export default function LoginPage() {
       const userDocRef = doc(db, "users", user.uid);
       const userDocSnap = await getDoc(userDocRef);
       
+      let effectiveRole: string | null = null;
+
       if (!userDocSnap.exists()) {
         // First login for admin-created user - create Firestore doc
         console.log("📋 First login - creating Firestore user document...");
@@ -45,6 +47,7 @@ export default function LoginPage() {
 
         // businessId is REQUIRED for tenant isolation
         const finalBusinessId = businessIdFromClaims || createdByFromClaims || user.uid;
+        effectiveRole = roleFromClaims;
 
         await setDoc(userDocRef, {
           uid: user.uid,
@@ -73,9 +76,12 @@ export default function LoginPage() {
           console.warn("⚠️ Could not update lastLogin:", updateError);
           // Don't block login if update fails
         }
+        const existingData = userDocSnap.data();
+        effectiveRole = (existingData?.role as string) || DEFAULT_ROLE;
       }
       
-      router.push("/dashboard"); // redirect after login
+      const targetPath = effectiveRole === UserRole.DELIVERY_CHALLAN ? "/delivery-challan" : "/dashboard";
+      router.push(targetPath); // redirect after login
     } catch (err: any) {
       setError("Invalid email or password");
     }

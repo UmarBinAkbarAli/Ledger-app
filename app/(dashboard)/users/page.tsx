@@ -52,30 +52,49 @@ export default function UsersPage() {
 
     // Get current user's businessId for tenant isolation
     const userDocSnap = await getDoc(doc(db, "users", currentUser.uid));
-    let currentBusinessId = currentUser.uid; // fallback for legacy users
+    let currentBusinessId: string | null = null;
+    let isLegacyAdmin = false;
 
     if (userDocSnap.exists()) {
       const userData = userDocSnap.data();
-      currentBusinessId = userData.businessId || currentUser.uid;
+      currentBusinessId = userData.businessId ?? null;
+      isLegacyAdmin = !currentBusinessId;
+    } else {
+      isLegacyAdmin = true;
     }
 
-    console.log("Current businessId:", currentBusinessId);
+    console.log("Current businessId:", currentBusinessId || "none");
 
     try {
       // Load Firestore users - filter by businessId for tenant isolation
       const userMap = new Map<string, UserProfile>();
-      const q = query(collection(db, "users"), where("businessId", "==", currentBusinessId));
 
-      const snapshot = await getDocs(q);
-      snapshot.forEach((docSnap) => {
-        const userData = docSnap.data() as UserProfile;
-        userMap.set(docSnap.id, userData);
-      });
+      if (currentBusinessId) {
+        const q = query(collection(db, "users"), where("businessId", "==", currentBusinessId));
+        try {
+          const snapshot = await getDocs(q);
+          snapshot.forEach((docSnap) => {
+            const userData = docSnap.data() as UserProfile;
+            userMap.set(docSnap.id, userData);
+          });
+        } catch (bizErr: any) {
+          if (bizErr?.code === "permission-denied") {
+            console.warn("Permission denied loading business users", {
+              authedUser: currentUser.uid,
+              businessId: currentBusinessId,
+            });
+          } else {
+            throw bizErr;
+          }
+        }
+      }
 
-      if (currentBusinessId === currentUser.uid) {
+      // Always include legacy users created by this admin (businessId == null)
+      try {
         const legacyQuery = query(
           collection(db, "users"),
-          where("createdBy", "==", currentUser.uid)
+          where("createdBy", "==", currentUser.uid),
+          where("businessId", "==", null)
         );
         const legacySnapshot = await getDocs(legacyQuery);
         legacySnapshot.forEach((docSnap) => {
@@ -83,6 +102,18 @@ export default function UsersPage() {
             userMap.set(docSnap.id, docSnap.data() as UserProfile);
           }
         });
+      } catch (legacyErr: any) {
+        if (legacyErr?.code === "permission-denied") {
+          console.warn("Permission denied loading legacy users", {
+            authedUser: currentUser.uid,
+          });
+        } else {
+          throw legacyErr;
+        }
+      }
+
+      if (isLegacyAdmin) {
+        console.warn("Legacy admin detected: missing businessId; showing only legacy users.");
       }
 
       let userList: UserProfile[] = [];

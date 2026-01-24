@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function AddCustomerPage() {
@@ -31,6 +31,9 @@ export default function AddCustomerPage() {
         return;
       }
 
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const businessId = userDoc.exists() ? (userDoc.data()?.businessId ?? null) : null;
+
       await addDoc(collection(db, "customers"), {
         name,
         company,
@@ -38,6 +41,7 @@ export default function AddCustomerPage() {
         address,
         previousBalance: Number(previousBalance) || 0,
         userId: user.uid,
+        ...(businessId ? { businessId } : {}),
         createdAt: serverTimestamp(),
       });
 

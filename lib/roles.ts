@@ -10,6 +10,7 @@ export enum UserRole {
   ADMIN = "admin",
   ACCOUNTANT = "accountant",
   SALES_USER = "sales_user",
+  DELIVERY_CHALLAN = "delivery_challan",
   VIEWER = "viewer",
 }
 
@@ -32,6 +33,7 @@ export enum Permission {
   MANAGE_PURCHASES = "manage_purchases",
   MANAGE_EXPENSES = "manage_expenses",
   MANAGE_INCOME = "manage_income",
+  MANAGE_DELIVERY_CHALLANS = "manage_delivery_challans",
 
   // Reporting & exports
   VIEW_REPORTS = "view_reports",
@@ -64,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_PURCHASES,
     Permission.MANAGE_EXPENSES,
     Permission.MANAGE_INCOME,
+    Permission.MANAGE_DELIVERY_CHALLANS,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_DATA,
     Permission.VIEW_BANK_ACCOUNTS,
@@ -81,6 +84,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_PURCHASES,
     Permission.MANAGE_EXPENSES,
     Permission.MANAGE_INCOME,
+    Permission.MANAGE_DELIVERY_CHALLANS,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_DATA,
     Permission.VIEW_BANK_ACCOUNTS,
@@ -92,8 +96,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Limited to sales operations
     Permission.MANAGE_CUSTOMERS,
     Permission.MANAGE_SALES,
+    Permission.MANAGE_DELIVERY_CHALLANS,
     Permission.VIEW_REPORTS,
     Permission.ACCESS_DASHBOARD,
+  ],
+
+  [UserRole.DELIVERY_CHALLAN]: [
+    // Delivery challan only
+    Permission.MANAGE_DELIVERY_CHALLANS,
   ],
 
   [UserRole.VIEWER]: [
@@ -110,6 +120,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
   [UserRole.ACCOUNTANT]: "Accountant",
   [UserRole.SALES_USER]: "Sales User",
+  [UserRole.DELIVERY_CHALLAN]: "Delivery Challan User",
   [UserRole.VIEWER]: "Viewer",
 };
 

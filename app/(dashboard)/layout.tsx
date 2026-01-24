@@ -9,7 +9,7 @@ import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import useOnlineStatus from "@/app/hooks/useOnlineStatus";
 import { useUserRole } from "@/lib/useUserRole";
-import { Permission } from "@/lib/roles";
+import { Permission, UserRole } from "@/lib/roles";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -47,11 +47,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [router]);
 
+  useEffect(() => {
+    if (!role || roleLoading) return;
+    if (role === UserRole.DELIVERY_CHALLAN && pathname && !pathname.startsWith("/delivery-challan")) {
+      router.replace("/delivery-challan");
+    }
+  }, [role, roleLoading, pathname, router]);
+
   if (loading || roleLoading) {
     return <div className="p-6">Loading...</div>;
   }
 
   // Check permissions for various nav items
+  const canAccessDashboard = hasPermission(Permission.ACCESS_DASHBOARD);
   const canManageCustomers = hasPermission(Permission.MANAGE_CUSTOMERS);
   const canManageSuppliers = hasPermission(Permission.MANAGE_SUPPLIERS);
   const canManageSales = hasPermission(Permission.MANAGE_SALES);
@@ -62,6 +70,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const canViewBankAccounts = hasPermission(Permission.VIEW_BANK_ACCOUNTS);
   const canManageSettings = hasPermission(Permission.MANAGE_SETTINGS);
   const canManageData = hasPermission(Permission.EXPORT_DATA);
+  const canManageDeliveryChallans = hasPermission(Permission.MANAGE_DELIVERY_CHALLANS);
+  const canManageProfile = hasPermission(Permission.MANAGE_COMPANY_PROFILE);
 
   return (
     <div className="min-h-screen bg-background-light flex flex-col">
@@ -119,13 +129,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           )}
 
           <nav className="flex flex-col space-y-2">
-            <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>
+            {canAccessDashboard && (
+              <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>
+            )}
             
+            {(canManageDeliveryChallans || canManageSales) && (
+              <Link className="hover:text-primary transition-colors text-text-primary" href="/delivery-challan">Delivery Challan</Link>
+            )}
             {canManageSales && (
-              <>
-                <Link className="hover:text-primary transition-colors text-text-primary" href="/delivery-challan">Delivery Challan</Link>
-                <Link className="hover:text-primary transition-colors text-text-primary" href="/sales">Sales</Link>
-              </>
+              <Link className="hover:text-primary transition-colors text-text-primary" href="/sales">Sales</Link>
             )}
             
             {canManageIncome && (
@@ -176,10 +188,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 </Link>
               )}
               
-              <Link className="hover:text-primary transition-colors text-text-primary flex items-center gap-2" href="/settings/profile">
-                <span className="material-symbols-outlined text-[18px]">person</span>
-                Profile Settings
-              </Link>
+              {canManageProfile && (
+                <Link className="hover:text-primary transition-colors text-text-primary flex items-center gap-2" href="/settings/profile">
+                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  Profile Settings
+                </Link>
+              )}
             </div>
           </nav>
 
