@@ -184,6 +184,11 @@ export default function ExpenseForm({
 
       const finalAmount = Number(amount);
       if (finalAmount <= 0) return;
+      if (paymentMethod === "BANK" && !bankName) {
+        alert("Bank is required");
+        return;
+      }
+      const effectiveBankName = paymentMethod === "CASH" ? "" : bankName;
 
     let bizId: string | null = businessId;
     if (!bizId) {
@@ -217,7 +222,7 @@ export default function ExpenseForm({
       amount: finalAmount,
       date,
       paymentMethod,
-      bankName,
+      bankName: effectiveBankName,
       notes,
 
       userId: user.uid,
@@ -241,7 +246,7 @@ if (expenseType === "OPERATIONAL") {
     amount: finalAmount,
     date,
     paymentMethod,
-    bankName,
+    bankName: effectiveBankName,
     userId: user.uid,
     createdAt: serverTimestamp(),
     ...(bizId ? { businessId: bizId } : {}),
