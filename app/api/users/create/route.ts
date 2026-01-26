@@ -44,6 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
   let decodedToken: any;
   let requestBody: any;
   let resetLink: string | null = null;
+  let usedTempPassword = false;
 
   try {
     const adminAuth = getAdminAuth();
@@ -138,12 +139,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
     }
 
     // Create user in Firebase Auth with sanitized data
+    const buildTempPassword = () => {
+      const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const lower = "abcdefghijklmnopqrstuvwxyz";
+      const nums = "0123456789";
+      const all = upper + lower + nums;
+      const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+      let pwd = pick(upper) + pick(lower) + pick(nums);
+      while (pwd.length < 14) {
+        pwd += pick(all);
+      }
+      return pwd;
+    };
+
+    const effectivePassword = password || buildTempPassword();
+    usedTempPassword = !password;
+
     logger.info("🔐 Creating user in Firebase Auth...");
     const sanitizedEmail = sanitizeEmail(email);
     const userRecord = await adminAuth.createUser({
       email: sanitizedEmail,
       displayName: sanitizedDisplayName,
-      password: password || undefined,
+      password: effectivePassword,
       disabled: false,
       emailVerified: false,
     });
@@ -248,7 +265,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
         displayName: sanitizedDisplayName,
         role,
         resetLink: resetLink || undefined,
-        message: `User ${sanitizedEmail} created successfully. Password reset email sent to ${sanitizedEmail}.`,
+        message: usedTempPassword
+          ? `User ${sanitizedEmail} created successfully. Password reset email sent to ${sanitizedEmail}.`
+          : `User ${sanitizedEmail} created successfully.`,
       },
       { status: 201 }
     );

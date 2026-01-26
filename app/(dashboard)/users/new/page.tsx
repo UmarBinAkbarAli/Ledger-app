@@ -12,7 +12,7 @@ export default function CreateUserPage() {
 
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [userRole, setUserRole] = useState<UserRole>(UserRole.SALES_USER);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.DELIVERY_CHALLAN);
   const [password, setPassword] = useState(""); // optional
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,7 +77,7 @@ export default function CreateUserPage() {
       }
       setEmail("");
       setDisplayName("");
-      setUserRole(UserRole.SALES_USER);
+      setUserRole(UserRole.DELIVERY_CHALLAN);
       setPassword("");
 
       // Redirect to user list after success

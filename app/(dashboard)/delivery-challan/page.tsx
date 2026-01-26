@@ -53,7 +53,15 @@ export default function DeliveryChallanListPage() {
           console.warn("Delivery challan debug failed to load token claims:", err);
         }
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        let bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        if (!bizId) {
+          try {
+            const tokenResult = await user.getIdTokenResult();
+            bizId = (tokenResult.claims.businessId as string | undefined) || null;
+          } catch (claimErr) {
+            console.warn("Delivery challan list failed to load claims businessId:", claimErr);
+          }
+        }
         setBusinessId(bizId);
       } catch (err: any) {
         // Handle permission errors gracefully and avoid uncaught rejects
@@ -74,18 +82,17 @@ export default function DeliveryChallanListPage() {
 
     setLoading(true);
     try {
+      // ✅ Note: We can't use compound orderBy in queries, so we'll sort in memory
       const byBusiness = businessId
         ? query(
             collection(db, "deliveryChallans"),
-            where("businessId", "==", businessId),
-            orderBy("date", "desc")
+            where("businessId", "==", businessId)
           )
         : null;
       const byUser = query(
         collection(db, "deliveryChallans"),
         where("userId", "==", user.uid),
-        where("businessId", "==", null),
-        orderBy("date", "desc")
+        where("businessId", "==", null)
       );
 
       // Prefer business scope; if denied (e.g., mismatched tenant), retry with userId fallback to avoid noisy errors.
@@ -119,6 +126,14 @@ export default function DeliveryChallanListPage() {
           totalQuantity: Number(data.totalQuantity || 0),
           status: data.status || "pending",
         };
+      });
+
+      // ✅ Sort by challan number (descending) for proper sequence
+      // Extract number from "CH-0001" format and sort numerically
+      list.sort((a, b) => {
+        const numA = parseInt(a.challanNumber.replace(/\D/g, '') || '0');
+        const numB = parseInt(b.challanNumber.replace(/\D/g, '') || '0');
+        return numB - numA; // Descending order (newest first)
       });
 
       setChallans(list);

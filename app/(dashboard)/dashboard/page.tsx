@@ -8,6 +8,8 @@ import TransferForm from "@/components/forms/TransferForm";
 import { auth, db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils";
+import { useUserRole } from "@/lib/useUserRole";
+import { useRouter } from "next/navigation";
 
 type TimePeriod = "today" | "thisMonth" | "lastMonth" | "last7Days" | "last30Days";
 
@@ -34,6 +36,9 @@ interface Transaction {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -41,6 +46,14 @@ export default function DashboardPage() {
   const [companyName, setCompanyName] = useState("Your Company");
   const [ownerName, setOwnerName] = useState("Owner Name");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("today");
+
+  // ✅ ADMIN-ONLY ACCESS: Redirect non-admin users
+  useEffect(() => {
+    if (!roleLoading && !isAdmin) {
+      console.log("❌ Dashboard access denied - redirecting to delivery challan");
+      router.replace("/delivery-challan");
+    }
+  }, [isAdmin, roleLoading, router]);
 
   // Load showCards state from localStorage
   const [showCards, setShowCards] = useState(() => {
@@ -400,6 +413,20 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  // ✅ Show loading while checking admin status
+  if (roleLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
+  // ✅ Don't render dashboard for non-admins (they'll be redirected)
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background-light">

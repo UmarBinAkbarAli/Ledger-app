@@ -28,6 +28,9 @@ export default function UsersPage() {
   const [error, setError] = useState("");
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [legacyAdmin, setLegacyAdmin] = useState(false);
+  const [repairingBusiness, setRepairingBusiness] = useState(false);
+  const [repairMessage, setRepairMessage] = useState("");
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,6 +67,7 @@ export default function UsersPage() {
     }
 
     console.log("Current businessId:", currentBusinessId || "none");
+    setLegacyAdmin(isLegacyAdmin);
 
     try {
       // Load Firestore users - filter by businessId for tenant isolation
@@ -171,6 +175,36 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleRepairBusiness = async () => {
+    try {
+      setRepairingBusiness(true);
+      setRepairMessage("");
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error("Not authenticated");
+      }
+      const response = await fetch("/api/users/repair-business", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ uid: auth.currentUser?.uid }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Repair failed");
+      }
+      setRepairMessage("Business access repaired. Refreshing user list...");
+      await loadUsers(true);
+    } catch (err: any) {
+      console.error("Repair business access failed:", err);
+      setRepairMessage(err.message || "Repair failed");
+    } finally {
+      setRepairingBusiness(false);
     }
   };
 
@@ -291,6 +325,23 @@ export default function UsersPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
+      {legacyAdmin && (
+        <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 p-4 text-yellow-800 flex items-center justify-between gap-3">
+          <span>Your admin profile is missing business access. This can hide users and cause "first login" pending statuses.</span>
+          <button
+            onClick={handleRepairBusiness}
+            disabled={repairingBusiness}
+            className="bg-yellow-600 text-white px-3 py-2 rounded hover:bg-yellow-700 disabled:bg-yellow-400"
+          >
+            {repairingBusiness ? "Repairing..." : "Repair Business Access"}
+          </button>
+        </div>
+      )}
+      {repairMessage && (
+        <div className="mb-4 rounded border border-blue-200 bg-blue-50 p-3 text-blue-800">
+          {repairMessage}
+        </div>
+      )}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Users</h1>

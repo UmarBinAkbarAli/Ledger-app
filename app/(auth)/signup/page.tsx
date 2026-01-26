@@ -68,7 +68,7 @@ export default function SignupPage() {
         console.log("👤 Employee first login");
         
         // Validate role from claims
-        const validRoles = ["admin", "accountant", "sales_user", "viewer"];
+        const validRoles = ["admin", "delivery_challan"];
         finalRole = (roleFromClaims && validRoles.includes(roleFromClaims)) 
           ? roleFromClaims 
           : DEFAULT_ROLE;

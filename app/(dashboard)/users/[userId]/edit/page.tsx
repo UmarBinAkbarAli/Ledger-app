@@ -62,6 +62,7 @@ export default function UserEditPage() {
 
     try {
       const roleChanged = user?.role !== role;
+      const needsBusinessFix = !user?.businessId;
 
       // Update Firestore document
       await updateDoc(doc(db, "users", userId), {
@@ -71,8 +72,8 @@ export default function UserEditPage() {
         updatedAt: new Date(),
       });
 
-      // If role changed, sync custom claims via API
-      if (roleChanged) {
+      // If role changed OR businessId is missing, sync custom claims via API
+      if (roleChanged || needsBusinessFix) {
         const authUser = auth.currentUser;
         if (authUser) {
           const idToken = await authUser.getIdToken();

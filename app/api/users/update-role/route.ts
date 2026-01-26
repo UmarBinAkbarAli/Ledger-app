@@ -77,8 +77,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Verify tenant match and preserve businessId
     const userDoc = await adminDb.collection("users").doc(uid).get();
     const userData = userDoc.exists ? userDoc.data() || {} : null;
-    const { businessId: targetBusinessId, createdBy: targetCreatedBy } =
+    let { businessId: targetBusinessId, createdBy: targetCreatedBy } =
       resolveTargetTenantInfo(userData, userRecord);
+
+    // Backfill missing businessId using admin's businessId when allowed
+    if (!targetBusinessId && adminBusinessId) {
+      targetBusinessId = adminBusinessId;
+    }
 
     if (
       !isSameTenant({
@@ -115,10 +120,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     logger.info("Custom claims updated");
 
     if (userDoc.exists) {
-      await adminDb.collection("users").doc(uid).update({
+      const updatePayload: Record<string, any> = {
         role,
         updatedAt: new Date(),
-      });
+      };
+      if (targetBusinessId && !userData?.businessId) {
+        updatePayload.businessId = targetBusinessId;
+      }
+      await adminDb.collection("users").doc(uid).update(updatePayload);
     }
 
 

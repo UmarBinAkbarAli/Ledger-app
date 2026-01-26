@@ -84,10 +84,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
     }
 
     // Create user in Firebase Auth
+    const buildTempPassword = () => {
+      const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const lower = "abcdefghijklmnopqrstuvwxyz";
+      const nums = "0123456789";
+      const all = upper + lower + nums;
+      const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+      let pwd = pick(upper) + pick(lower) + pick(nums);
+      while (pwd.length < 14) {
+        pwd += pick(all);
+      }
+      return pwd;
+    };
+    const effectivePassword = password || buildTempPassword();
+
     const userRecord = await adminAuth.createUser({
       email,
       displayName,
-      password: password || undefined, // let Firebase generate temp password if not provided
+      password: effectivePassword,
       disabled: false,
     });
 

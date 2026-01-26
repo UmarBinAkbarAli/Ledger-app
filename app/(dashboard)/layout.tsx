@@ -47,12 +47,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (!role || roleLoading) return;
-    if (role === UserRole.DELIVERY_CHALLAN && pathname && !pathname.startsWith("/delivery-challan")) {
-      router.replace("/delivery-challan");
-    }
-  }, [role, roleLoading, pathname, router]);
+  // Removed forced redirect - users should be able to navigate freely within their permitted areas
+  // Permission checks are handled by hasPermission checks below
 
   if (loading || roleLoading) {
     return <div className="p-6">Loading...</div>;
@@ -133,7 +129,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>
             )}
             
-            {(canManageDeliveryChallans || canManageSales) && (
+            {canManageDeliveryChallans && (
               <Link className="hover:text-primary transition-colors text-text-primary" href="/delivery-challan">Delivery Challan</Link>
             )}
             {canManageSales && (

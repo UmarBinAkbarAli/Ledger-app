@@ -8,10 +8,7 @@
  */
 export enum UserRole {
   ADMIN = "admin",
-  ACCOUNTANT = "accountant",
-  SALES_USER = "sales_user",
   DELIVERY_CHALLAN = "delivery_challan",
-  VIEWER = "viewer",
 }
 
 /**
@@ -75,40 +72,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ACCESS_DASHBOARD,
   ],
 
-  [UserRole.ACCOUNTANT]: [
-    // Full data access + reporting
-    Permission.MANAGE_ALL_DATA,
-    Permission.MANAGE_CUSTOMERS,
-    Permission.MANAGE_SUPPLIERS,
-    Permission.MANAGE_SALES,
-    Permission.MANAGE_PURCHASES,
-    Permission.MANAGE_EXPENSES,
-    Permission.MANAGE_INCOME,
-    Permission.MANAGE_DELIVERY_CHALLANS,
-    Permission.VIEW_REPORTS,
-    Permission.EXPORT_DATA,
-    Permission.VIEW_BANK_ACCOUNTS,
-    Permission.MANAGE_COMPANY_PROFILE,
-    Permission.ACCESS_DASHBOARD,
-  ],
-
-  [UserRole.SALES_USER]: [
-    // Limited to sales operations
-    Permission.MANAGE_CUSTOMERS,
-    Permission.MANAGE_SALES,
-    Permission.MANAGE_DELIVERY_CHALLANS,
-    Permission.VIEW_REPORTS,
-    Permission.ACCESS_DASHBOARD,
-  ],
-
   [UserRole.DELIVERY_CHALLAN]: [
-    // Delivery challan only
+    // Delivery challan management and dashboard access
     Permission.MANAGE_DELIVERY_CHALLANS,
-  ],
-
-  [UserRole.VIEWER]: [
-    // Read-only access
-    Permission.VIEW_REPORTS,
     Permission.ACCESS_DASHBOARD,
   ],
 };
@@ -118,16 +84,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  */
 export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
-  [UserRole.ACCOUNTANT]: "Accountant",
-  [UserRole.SALES_USER]: "Sales User",
   [UserRole.DELIVERY_CHALLAN]: "Delivery Challan User",
-  [UserRole.VIEWER]: "Viewer",
 };
 
 /**
  * Default role for new user signups
  */
-export const DEFAULT_ROLE = UserRole.ADMIN;
+export const DEFAULT_ROLE = UserRole.DELIVERY_CHALLAN;
 
 /**
  * Roles that can manage other users

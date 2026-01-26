@@ -55,14 +55,22 @@ export default function NewDeliveryChallanPage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        // Fetch businessId from user profile (tenant boundary)
+        // Fetch businessId from user profile (tenant boundary), fallback to claims
         const userDoc = await getDoc(doc(db, "users", user.uid));
-        const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        let bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
+        if (!bizId) {
+          try {
+            const tokenResult = await user.getIdTokenResult();
+            bizId = (tokenResult.claims.businessId as string | undefined) || null;
+          } catch (claimErr) {
+            console.warn("Could not fetch businessId from claims", claimErr);
+          }
+        }
         setBusinessId(bizId);
 
         // Prefer business-scoped query; if denied, retry with user-scoped query
         const byBusiness = bizId ? query(collection(db, "customers"), where("businessId", "==", bizId)) : null;
-        const byUser = query(collection(db, "customers"), where("userId", "==", user.uid));
+        const byUser = query(collection(db, "customers"), where("userId", "==", user.uid), where("businessId", "==", null));
 
         let snap;
         try {
@@ -110,7 +118,7 @@ export default function NewDeliveryChallanPage() {
 
         // Prefer business-scoped query; if denied, retry with user-scoped query
         const byBusiness = businessId ? query(collection(db, "deliveryChallans"), where("businessId", "==", businessId)) : null;
-        const byUser = query(collection(db, "deliveryChallans"), where("userId", "==", user.uid));
+        const byUser = query(collection(db, "deliveryChallans"), where("userId", "==", user.uid), where("businessId", "==", null));
 
         let snap;
         try {
@@ -213,8 +221,16 @@ export default function NewDeliveryChallanPage() {
 
     // Re-fetch current user profile early so any created records use the authoritative businessId
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    const userBusinessId = userDoc.exists() ? (userDoc.data()?.businessId ?? null) : null;
-    const businessIdForWrite = userBusinessId ? userBusinessId : user.uid; // legacy users use uid as tenant
+    let userBusinessId = userDoc.exists() ? (userDoc.data()?.businessId ?? null) : null;
+    if (!userBusinessId) {
+      try {
+        const tokenResult = await user.getIdTokenResult();
+        userBusinessId = (tokenResult.claims.businessId as string | undefined) || null;
+      } catch (claimErr) {
+        console.warn("Could not fetch businessId from claims", claimErr);
+      }
+    }
+    const businessIdForWrite = userBusinessId ?? null; // legacy users keep businessId null for rules
 
     if (!selectedCustomerId) {
       setError("Please select a company from the list");

@@ -113,68 +113,39 @@ export default function AddPurchasePage() {
           }
         }
 
-        const byBusiness = bizId
-          ? query(
-              collection(db, "purchases"),
-              where("businessId", "==", bizId),
-              orderBy("createdAt", "desc"),
-              limit(1)
-            )
-          : null;
-        const byUser = query(
-          collection(db, "purchases"),
-          where("userId", "==", userId),
-          orderBy("createdAt", "desc"),
-          limit(1)
-        );
+        // ✅ FIX: Query ALL purchases for this business to find max number
+        // Don't rely on orderBy+limit which might miss records
+        const qAll = bizId
+          ? query(collection(db, "purchases"), where("businessId", "==", bizId))
+          : query(collection(db, "purchases"), where("userId", "==", userId), where("businessId", "==", null));
 
         let snap;
         try {
-          snap = await getDocs(byBusiness || byUser);
+          snap = await getDocs(qAll);
         } catch (err: any) {
-          if (err?.code === "permission-denied" && byBusiness) {
+          if (err?.code === "permission-denied" && bizId) {
             console.warn("Business scope denied for purchases, falling back to userId");
-            snap = await getDocs(byUser);
+            snap = await getDocs(query(collection(db, "purchases"), where("userId", "==", userId), where("businessId", "==", null)));
           } else {
             throw err;
           }
         }
 
+        // ✅ FIX: Scan ALL purchases to find the maximum bill number
         let lastNumber = 0;
-        if (!snap.empty) {
-          const data: any = snap.docs[0].data();
-          const bill = data.billNumber || "";
+        snap.forEach((d) => {
+          const bill = (d.data() as any).billNumber || "";
           const num = parseInt(bill.replace(/\D/g, ""));
-          if (!isNaN(num)) lastNumber = num;
-        } else {
-          // fallback scan
-          const qAll = bizId
-            ? query(collection(db, "purchases"), where("businessId", "==", bizId))
-            : query(collection(db, "purchases"), where("userId", "==", userId));
-
-          let snapAll;
-          try {
-            snapAll = await getDocs(qAll);
-          } catch (err: any) {
-            if (err?.code === "permission-denied" && bizId) {
-              snapAll = await getDocs(
-                query(collection(db, "purchases"), where("userId", "==", userId))
-              );
-            } else {
-              throw err;
-            }
+          if (!isNaN(num) && num > lastNumber) {
+            lastNumber = num;
           }
-          snapAll.forEach((d) => {
-            const bill = (d.data() as any).billNumber || "";
-            const num = parseInt(bill.replace(/\D/g, ""));
-            if (!isNaN(num) && num > lastNumber) lastNumber = num;
-          });
-        }
+        });
 
         const next = lastNumber + 1;
         const formatted = String(next).padStart(4, "0");
         setAutoBill(`PUR-${formatted}`);
         setBillNumber((prev) => prev || `PUR-${formatted}`);
+        console.log(`✅ Generated bill number: PUR-${formatted} (${snap.size} existing purchases)`);
       } catch (err) {
         console.error("Error loading last purchase bill:", err);
       }

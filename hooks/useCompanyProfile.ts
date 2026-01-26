@@ -56,17 +56,51 @@ export function useCompanyProfile() {
         }
 
         const userDoc = await getDoc(doc(db, "users", user.uid));
+        let userData: any = null;
+        let businessId: string | null = null;
+
         if (userDoc.exists()) {
-          const data = userDoc.data();
+          userData = userDoc.data();
+          businessId = userData?.businessId ?? null;
+        }
+
+        if (!businessId) {
+          try {
+            const tokenResult = await user.getIdTokenResult();
+            businessId = (tokenResult.claims.businessId as string | undefined) || null;
+          } catch (claimErr) {
+            console.warn("useCompanyProfile: failed to read token claims", claimErr);
+          }
+        }
+
+        if (businessId) {
+          const bizDoc = await getDoc(doc(db, "businesses", businessId));
+          if (bizDoc.exists()) {
+            const biz = bizDoc.data() as any;
+            setProfile({
+              companyName: biz.name || userData?.companyName || "Company Name",
+              ownerName: userData?.ownerName || "",
+              address: biz.address || userData?.address || "",
+              phone: biz.phone || userData?.phone || "",
+              email: biz.email || userData?.email || "",
+              website: userData?.website || "",
+              tagline: biz.tagline || userData?.tagline || "",
+              logoUrl: convertGoogleDriveUrl(biz.logoUrl || userData?.logoUrl || null),
+            });
+            return;
+          }
+        }
+
+        if (userData) {
           setProfile({
-            companyName: data.companyName || "Company Name",
-            ownerName: data.ownerName || "",
-            address: data.address || "",
-            phone: data.phone || "",
-            email: data.email || "",
-            website: data.website || "",
-            tagline: data.tagline || "",
-            logoUrl: convertGoogleDriveUrl(data.logoUrl) || null,
+            companyName: userData.companyName || "Company Name",
+            ownerName: userData.ownerName || "",
+            address: userData.address || "",
+            phone: userData.phone || "",
+            email: userData.email || "",
+            website: userData.website || "",
+            tagline: userData.tagline || "",
+            logoUrl: convertGoogleDriveUrl(userData.logoUrl) || null,
           });
         } else {
           setError("Profile not found");

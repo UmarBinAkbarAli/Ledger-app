@@ -57,8 +57,31 @@ export default function ProfileSettingsPage() {
 
       try {
         const userDoc = await getDoc(doc(db, "users", user.uid));
+        let businessId: string | null = null;
+        
         if (userDoc.exists()) {
           const data = userDoc.data();
+          businessId = data.businessId || null;
+          
+          // Try to load from business first if businessId exists
+          if (businessId) {
+            const bizDoc = await getDoc(doc(db, "businesses", businessId));
+            if (bizDoc.exists()) {
+              const bizData = bizDoc.data();
+              setCompanyName(bizData.name || data.companyName || "");
+              setOwnerName(data.ownerName || "");
+              setAddress(bizData.address || data.address || "");
+              setPhone(bizData.phone || data.phone || "");
+              setEmail(bizData.email || data.email || "");
+              setWebsite(data.website || "");
+              setTagline(bizData.tagline || data.tagline || "");
+              setLogoUrl(bizData.logoUrl || data.logoUrl || "");
+              setLoading(false);
+              return;
+            }
+          }
+          
+          // Fallback to user data
           setCompanyName(data.companyName || "");
           setOwnerName(data.ownerName || "");
           setAddress(data.address || "");
@@ -97,6 +120,28 @@ export default function ProfileSettingsPage() {
         return;
       }
 
+      const convertedLogoUrl = convertGoogleDriveUrl(logoUrl) || null;
+      const timestamp = new Date();
+      
+      // Get businessId from user document
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      let businessId: string | null = null;
+      
+      if (userDoc.exists()) {
+        businessId = userDoc.data()?.businessId || null;
+      }
+      
+      if (!businessId) {
+        // Try to get from token claims
+        try {
+          const tokenResult = await user.getIdTokenResult();
+          businessId = (tokenResult.claims.businessId as string | undefined) || null;
+        } catch (err) {
+          console.warn("Could not get businessId from claims");
+        }
+      }
+
+      // Save to user document (for backward compatibility)
       await setDoc(
         doc(db, "users", user.uid),
         {
@@ -107,11 +152,33 @@ export default function ProfileSettingsPage() {
           email,
           website,
           tagline,
-          logoUrl: convertGoogleDriveUrl(logoUrl) || null,
-          updatedAt: new Date(),
+          logoUrl: convertedLogoUrl,
+          updatedAt: timestamp,
         },
         { merge: true }
       );
+
+      // Save to business document if businessId exists
+      if (businessId) {
+        await setDoc(
+          doc(db, "businesses", businessId),
+          {
+            name: companyName,
+            address,
+            phone,
+            email,
+            tagline,
+            logoUrl: convertedLogoUrl,
+            ownerId: user.uid,
+            status: "active",
+            updatedAt: timestamp,
+          },
+          { merge: true }
+        );
+        console.log("✅ Profile saved to both users and businesses collections");
+      } else {
+        console.log("✅ Profile saved to users collection only (no businessId)");
+      }
 
       setSuccess("Profile updated successfully!");
       setTimeout(() => setSuccess(""), 3000);
