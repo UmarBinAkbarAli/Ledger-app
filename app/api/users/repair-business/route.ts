@@ -145,27 +145,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     
     // ✅ CREATE BUSINESS RECORD if missing (for header display)
-    const businessDocRef = adminDb.collection("businesses").doc(targetBusinessId);
-    const businessDoc = await businessDocRef.get();
-    
-    if (!businessDoc.exists()) {
-      console.log("📝 Creating missing business record...");
-      await businessDocRef.set({
-        id: targetBusinessId,
-        name: userData.companyName || userRecord.displayName || userRecord.email?.split('@')[0] || "Business",
-        email: userData.email || userRecord.email,
-        address: userData.address || "",
-        phone: userData.phone || "",
-        tagline: userData.tagline || "",
-        logoUrl: userData.logoUrl || null,
-        ownerId: targetUid,
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      console.log("✅ Business record created");
-    } else {
-      console.log("✅ Business record already exists");
+    if (targetBusinessId) {
+      const businessDocRef = adminDb.collection("businesses").doc(targetBusinessId);
+      const businessDoc = await businessDocRef.get();
+      
+      if (!businessDoc.exists) {
+        console.log("📝 Creating missing business record...");
+        await businessDocRef.set({
+          id: targetBusinessId,
+          name: userData.companyName || userRecord.displayName || userRecord.email?.split('@')[0] || "Business",
+          email: userData.email || userRecord.email,
+          address: userData.address || "",
+          phone: userData.phone || "",
+          tagline: userData.tagline || "",
+          logoUrl: userData.logoUrl || null,
+          ownerId: targetUid,
+          status: "active",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log("✅ Business record created");
+      } else {
+        console.log("✅ Business record already exists");
+      }
     }
 
     return NextResponse.json(

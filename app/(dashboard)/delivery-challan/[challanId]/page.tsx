@@ -105,14 +105,30 @@ export default function ViewChallanPage() {
     printWindow.document.write(html);
     printWindow.document.close();
 
-    // Wait until the content is loaded before printing
+    // Wait for all images to load before printing
     printWindow.onload = function () {
-      setTimeout(() => {
-        printWindow.focus();
-        printWindow.print();
-        // Optionally close the window after printing
-        setTimeout(() => printWindow.close(), 500);
-      }, 200);
+      const images = printWindow.document.querySelectorAll('img');
+      const imagePromises = Array.from(images).map((img: any) => {
+        return new Promise((resolve) => {
+          if (img.complete) {
+            resolve(true);
+          } else {
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false); // Still resolve even on error
+            // Timeout after 3 seconds
+            setTimeout(() => resolve(false), 3000);
+          }
+        });
+      });
+
+      Promise.all(imagePromises).then(() => {
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          // Optionally close the window after printing
+          setTimeout(() => printWindow.close(), 500);
+        }, 200);
+      });
     };
   };
 

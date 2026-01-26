@@ -50,7 +50,7 @@ export default function CheckDuplicatesPage() {
         : query(collection(db, "purchases"), where("userId", "==", user.uid), where("businessId", "==", null));
       
       const purchasesSnap = await getDocs(purchasesQuery);
-      const purchaseBillMap = new Map();
+      const purchaseBillMap = new Map<string, any[]>();
       
       purchasesSnap.forEach(docSnap => {
         const data = docSnap.data();
@@ -58,14 +58,14 @@ export default function CheckDuplicatesPage() {
         if (!purchaseBillMap.has(billNum)) {
           purchaseBillMap.set(billNum, []);
         }
-        purchaseBillMap.get(billNum).push({
+        purchaseBillMap.get(billNum)!.push({
           id: docSnap.id,
           date: data.date,
           supplier: data.supplierName || 'Unknown',
         });
       });
 
-      const purchaseDupes = [];
+      const purchaseDupes: Array<{ billNum: string; count: number; records: any[] }> = [];
       purchaseBillMap.forEach((records, billNum) => {
         if (records.length > 1) {
           purchaseDupes.push({ billNum, count: records.length, records });
@@ -94,7 +94,7 @@ export default function CheckDuplicatesPage() {
         : query(collection(db, "deliveryChallans"), where("userId", "==", user.uid), where("businessId", "==", null));
       
       const challansSnap = await getDocs(challansQuery);
-      const challanNumMap = new Map();
+      const challanNumMap = new Map<string, any[]>();
       
       challansSnap.forEach(docSnap => {
         const data = docSnap.data();
@@ -102,14 +102,14 @@ export default function CheckDuplicatesPage() {
         if (!challanNumMap.has(challanNum)) {
           challanNumMap.set(challanNum, []);
         }
-        challanNumMap.get(challanNum).push({
+        challanNumMap.get(challanNum)!.push({
           id: docSnap.id,
           date: data.date,
           customer: data.customerName || 'Unknown',
         });
       });
 
-      const challanDupes = [];
+      const challanDupes: Array<{ challanNum: string; count: number; records: any[] }> = [];
       challanNumMap.forEach((records, challanNum) => {
         if (records.length > 1) {
           challanDupes.push({ challanNum, count: records.length, records });
