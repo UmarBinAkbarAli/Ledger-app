@@ -138,7 +138,8 @@ export default function UsersPage() {
       setFirestoreUsers(userList);
 
       // Load Auth users (including pending ones without Firestore docs)
-      const idToken = await auth.currentUser?.getIdToken();
+      // Force token refresh to ensure custom claims are loaded
+      const idToken = await auth.currentUser?.getIdToken(true); // true = force refresh
       if (idToken) {
         try {
           const response = await fetch("/api/users/list-auth", {

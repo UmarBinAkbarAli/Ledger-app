@@ -22,9 +22,6 @@ function initializeAdminApp(): App {
     return getApp();
   }
   
-  // Set SSL bypass for corporate networks BEFORE initializing
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  
   const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
@@ -32,7 +29,8 @@ function initializeAdminApp(): App {
   };
 
   if (!serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
-    throw new Error("Missing Firebase Admin credentials in environment variables");
+    console.error("❌ Missing Firebase Admin credentials");
+    throw new Error("Missing Firebase Admin credentials in environment variables. Check .env.local file.");
   }
 
   return initializeApp({
@@ -58,18 +56,18 @@ export function getAdminFirestore(): Firestore {
   if (!adminDb) {
     adminDb = getFirestore(getAdminApp());
 
-    // ✅ CRITICAL: Use REST API instead of gRPC to bypass corporate SSL issues
-    // This is the key fix for corporate network environments
+    // ✅ Use REST API instead of gRPC for better corporate network compatibility
+    // This avoids SSL certificate issues without disabling security
     if (!firestoreSettingsApplied) {
       try {
         adminDb.settings({
           preferRest: true,  // Use REST API instead of gRPC
+          ignoreUndefinedProperties: true, // Ignore undefined values
         });
         firestoreSettingsApplied = true;
-        console.log("✅ Firestore Admin initialized with REST API (bypassing gRPC/SSL issues)");
+        console.log("✅ Firestore Admin initialized with REST API");
       } catch (error) {
-        // Settings already applied, ignore error
-        console.log("🔓 SSL verification confirmed disabled in register hook");
+        console.warn("⚠️ Firestore settings already applied");
       }
     }
   }

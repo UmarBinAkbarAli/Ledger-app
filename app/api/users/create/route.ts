@@ -19,7 +19,8 @@ import {
 import { logger } from "@/lib/logger";
 import { logAuditEventServer, AuditAction, createAuditDetails } from "@/lib/auditLogServer";
 import { requireAdmin } from "@/lib/adminAuth";
-import { applyRateLimit } from "@/lib/rateLimiter";
+import { applyStrictRateLimit } from "@/lib/rateLimiterEnhanced";
+import { sendPasswordResetEmail } from "@/lib/emailService";
 
 interface CreateUserRequest {
   email: string;
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
 
     logger.info("📨 POST /api/users/create called");
 
-    const rateLimitResponse = await applyRateLimit(request, 4);
+    const rateLimitResponse = await applyStrictRateLimit(request);
     if (rateLimitResponse) return rateLimitResponse as NextResponse<CreateUserResponse>;
 
     const adminVerification = await requireAdmin(request);
@@ -228,19 +229,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
       );
     }
 
-    // ✅ SECURITY: Generate password reset link but send via email (not in response)
-    // TODO: Integrate email service (SendGrid, AWS SES, etc.) to send reset link
-    try {
-      resetLink = await adminAuth.generatePasswordResetLink(sanitizedEmail);
-      logger.info("✅ Password reset link generated");
-
-      // TODO: Send email with reset link
-      // await sendPasswordResetEmail(sanitizedEmail, resetLink);
-
-      // Return reset link to authenticated admin caller
-      // Reset links should only be sent via email to prevent exposure in logs/network traffic
-    } catch (e) {
-      logger.warn("⚠️ Could not generate password reset link:", (e as any)?.message);
+    // ✅ SECURITY: Generate password reset link and send via EMAIL ONLY (never in response/logs)
+    if (usedTempPassword) {
+      try {
+        const resetLink = await adminAuth.generatePasswordResetLink(sanitizedEmail);
+        
+        // Send password reset email securely
+        await sendPasswordResetEmail(sanitizedEmail, resetLink, sanitizedDisplayName);
+        logger.info("✅ Password reset email sent successfully");
+      } catch (emailError) {
+        logger.error("❌ Failed to send password reset email:", emailError);
+        // Don't fail user creation if email fails - admin can resend manually
+      }
     }
 
     // ✅ AUDIT LOG: Log successful user creation
@@ -264,10 +264,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
         email: sanitizedEmail,
         displayName: sanitizedDisplayName,
         role,
-        resetLink: resetLink || undefined,
         message: usedTempPassword
           ? `User ${sanitizedEmail} created successfully. Password reset email sent to ${sanitizedEmail}.`
-          : `User ${sanitizedEmail} created successfully.`,
+          : `User ${sanitizedEmail} created successfully with provided password.`,
       },
       { status: 201 }
     );
