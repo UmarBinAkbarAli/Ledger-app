@@ -16,8 +16,10 @@ interface RepairBusinessRequest {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // ✅ CRITICAL: Set SSL bypass for corporate networks
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    // ✅ DEVELOPMENT ONLY: SSL bypass for corporate networks with self-signed certificates
+    if (process.env.NODE_ENV === 'development') {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+    }
     
     const adminAuth = getAdminAuth();
     const adminDb = getAdminFirestore();

@@ -6,8 +6,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // ✅ SECURITY: Only allow this test endpoint in development
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "This endpoint is only available in development mode",
+        error: "Forbidden"
+      },
+      { status: 403 }
+    );
+  }
+
   try {
-    // Set SSL bypass
+    // Set SSL bypass for development testing
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
     
     const adminAuth = getAdminAuth();
