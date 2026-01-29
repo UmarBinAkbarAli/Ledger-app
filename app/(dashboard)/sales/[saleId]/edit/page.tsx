@@ -472,8 +472,9 @@ export default function EditSalePage() {
                     <td className="p-2 text-right">
                       <input
                         type="text"
-                        inputMode="numeric"
+                        inputMode="decimal"
                         className="w-20 border border-gray-300 p-1 rounded text-right"
+                        placeholder="0 or -0"
                         value={it.qty}
                         onChange={(e) =>
                           updateItem(idx, "qty", e.target.value)
