@@ -161,12 +161,21 @@ export default function PurchaseDetailsPage() {
       </div>
 
       {/* ACTION BUTTONS */}
-      <div className="mt-4 flex gap-3">
-         <button
-            onClick={() => router.push(`/purchase/new?id=${purchase.id}`)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-            Edit Invoice
-          </button>
+      <div className="mt-4 flex gap-3 flex-wrap">
+        <button
+          onClick={() => router.push("/purchase/new")}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          + New Purchase
+        </button>
+
+        <button
+          onClick={() => router.push(`/purchase/new?id=${purchase.id}`)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+        >
+          Edit Invoice
+        </button>
+
         <button
           onClick={() => window.print()}
           className="print:hidden px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
