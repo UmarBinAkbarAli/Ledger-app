@@ -110,8 +110,12 @@ export default function CustomersPage() {
         };
       });
 
-      // Sort alphabetically for clean UI
-      list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      // Sort alphabetically by company name (fallback to name if no company)
+      list.sort((a, b) => {
+        const aLabel = a.company || a.name || "";
+        const bLabel = b.company || b.name || "";
+        return aLabel.localeCompare(bLabel);
+      });
 
       setCustomers(list);
     } catch (err) {
@@ -167,7 +171,7 @@ export default function CustomersPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Search customer..."
+          placeholder="Search by company, name, or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border p-2 rounded w-full md:w-96"
@@ -194,9 +198,14 @@ export default function CustomersPage() {
 
           <tbody>
             {customers
-              .filter((c) =>
-                (c.name || "").toLowerCase().includes(search.toLowerCase())
-              )
+              .filter((c) => {
+                const searchTerm = search.toLowerCase();
+                const company = (c.company || "").toLowerCase();
+                const name = (c.name || "").toLowerCase();
+                const phone = (c.phone || "").toLowerCase();
+                // Search by company first, then name, then phone
+                return company.includes(searchTerm) || name.includes(searchTerm) || phone.includes(searchTerm);
+              })
               .map((c) => (
                 <tr key={c.id} className="border-t">
                   <td className="p-3">{c.name}</td>
