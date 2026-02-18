@@ -78,7 +78,7 @@ export default function PurchaseListPage() {
         query(
           purchasesRef,
           where(field, "==", value),
-          orderBy("createdAt", "desc"),
+          orderBy("billNumber", "desc"),
           ...(last ? [startAfter(last)] : []),
           limit(ITEMS_PER_PAGE)
         );
