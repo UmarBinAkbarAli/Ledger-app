@@ -63,6 +63,8 @@ export default function TransferForm({ onSuccess }: { onSuccess: () => void }) {
         toAccount,
         description,
         createdAt: serverTimestamp(),
+        status: "active",
+        userEmail: user.email,
         ...(bizId ? { businessId: bizId } : {}),
       });
       onSuccess();

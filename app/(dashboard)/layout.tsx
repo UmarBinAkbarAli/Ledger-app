@@ -162,6 +162,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <Link className="hover:text-primary transition-colors text-text-primary" href="/bank-ledger">Bank Ledger</Link>
                 <Link className="hover:text-primary transition-colors text-text-primary" href="/petty-cash">Petty Cash</Link>
                 <Link className="hover:text-primary transition-colors text-text-primary" href="/operational-expenses">Operational Expenses</Link>
+                <Link className="hover:text-primary transition-colors text-text-primary" href="/transaction-history">Transaction History</Link>
               </>
             )}
             
