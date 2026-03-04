@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { doc, deleteDoc, writeBatch, getDoc, query, collection, where, getDocs } from "firebase/firestore";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { FormAlert } from "@/components/FormAlert";
 
@@ -75,16 +75,70 @@ export default function SalesListPage() {
 
     // ✅ Store the current list in case we need to rollback
     const previousSales = displaySales;
-    
+
     try {
       // ✅ Optimistic update: remove from UI immediately
       setDeletingId(sale.id);
       setDisplaySales((prev) => prev.filter((x) => x.id !== sale.id));
       setError("");
 
-      // ✅ Delete from Firestore
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
+
+      // ✅ First, get the sale document to check for linked challans
+      const saleDoc = await getDoc(doc(db, "sales", sale.id));
+      const saleData = saleDoc.exists() ? saleDoc.data() : null;
+
+      // ✅ Unlink any delivery challans that were linked to this sale
+      if (saleData) {
+        // Method 1: Check if sale has challanIds array (most reliable)
+        const challanIds = saleData.challanIds || [];
+
+        // Method 2: Also query challans that reference this sale's invoiceId
+        // ⚠️ IMPORTANT: Must include businessId/userId in query for security rules
+        const scopeField = saleData.businessId ? "businessId" : "userId";
+        const scopeValue = saleData.businessId || saleData.userId;
+
+        let challansSnap;
+        try {
+          const challansQuery = query(
+            collection(db, "deliveryChallans"),
+            where(scopeField, "==", scopeValue),
+            where("invoiceId", "==", sale.id)
+          );
+          challansSnap = await getDocs(challansQuery);
+        } catch (queryErr: any) {
+          console.warn("Could not query challans by invoiceId, using challanIds array only", queryErr);
+          challansSnap = { docs: [] }; // Fallback to empty if query fails
+        }
+
+        // Combine both methods to ensure we catch all linked challans
+        const allChallanIds = new Set([
+          ...challanIds,
+          ...challansSnap.docs.map(d => d.id)
+        ]);
+
+        // If there are linked challans, reset them to pending status
+        if (allChallanIds.size > 0) {
+          const batch = writeBatch(db);
+
+          allChallanIds.forEach((challanId) => {
+            const challanRef = doc(db, "deliveryChallans", challanId);
+            batch.update(challanRef, {
+              status: "pending",
+              invoiceId: null,
+              invoiceNumber: null,
+            });
+          });
+
+          await batch.commit();
+          console.log(`✅ Unlinked ${allChallanIds.size} delivery challan(s) and reset to pending status`);
+        }
+      }
+
+      // ✅ Delete the sale from Firestore
       await deleteDoc(doc(db, "sales", sale.id));
-      
+
       setDeletingId(null);
     } catch (err: any) {
       console.error(err);
