@@ -190,10 +190,11 @@ export default function BankLedgerPage() {
 
       <div className="bg-white border rounded p-4">
         <table className="w-full text-sm">
-          <thead><tr className="bg-gray-100 border-b"><th className="p-2 text-left">Type</th><th className="p-2 text-left">Details</th><th className="p-2 text-right">Amount</th></tr></thead>
+          <thead><tr className="bg-gray-100 border-b"><th className="p-2 text-left">Date</th><th className="p-2 text-left">Type</th><th className="p-2 text-left">Details</th><th className="p-2 text-right">Amount</th></tr></thead>
           <tbody>
             {transactions.map(t => (
               <tr key={t.id} className="border-b">
+                <td className="p-2 whitespace-nowrap text-gray-600">{t.date || "-"}</td>
                 <td className="p-2 font-medium">{t.type} <span className="text-xs text-gray-500">{t.subType}</span></td>
                 <td className="p-2">{t.customerName || t.supplierName || t.categoryName} <br/><span className="text-xs text-gray-400">{t.description}</span></td>
                 <td className={`p-2 text-right font-bold ${t.type.includes("Out") || t.type === "Expense" ? "text-red-600" : "text-green-600"}`}>
