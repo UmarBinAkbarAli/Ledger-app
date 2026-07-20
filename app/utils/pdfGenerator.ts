@@ -30,7 +30,8 @@ export async function generatePDF(targetId: string, fileName: string, options?: 
         format: "a4",
         orientation: "portrait",
       },
-      pagebreak: { mode: ["css", "legacy"] },
+      // "avoid-all" + "css" keep table rows from being sliced across pages
+      pagebreak: { mode: ["css", "legacy", "avoid-all"] },
     };
 
     // If only 1 copy requested, behave as before

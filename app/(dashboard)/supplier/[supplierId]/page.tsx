@@ -503,10 +503,22 @@ const handlePDF = async () => {
   }
 };
 
+const handlePrint = () => {
+  // Enables the multi-page print rules in globals.css. Invoices deliberately
+  // keep the single-page layout, so this is opt-in per page.
+  document.body.classList.add("printing-ledger");
+  const cleanup = () => {
+    document.body.classList.remove("printing-ledger");
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+};
+
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 print:hidden">
                     <div>
               {/* Company name = primary */}
               <h2 className="text-xl font-bold">
@@ -534,7 +546,7 @@ const handlePDF = async () => {
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={handlePrint}
             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
           >
             Print Ledger
@@ -558,7 +570,7 @@ const handlePDF = async () => {
       )}
 
       {/* Filters row (copy of customer ledger style) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 print:hidden">
         <div>
           <label className="text-sm block mb-1">From</label>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full border p-2 rounded" />
@@ -658,7 +670,8 @@ const handlePDF = async () => {
         */}
 
       {/* FOOTER: Opening / Closing Balance (aligned right like customer ledger) */}
-                <div className="mt-6 flex justify-end">
+      {/* Outside #pdf-area, so it is excluded from print/PDF as before. */}
+                <div className="mt-6 flex justify-end print:hidden">
             <div className="w-72">
               <div className="flex justify-between text-sm text-gray-500">
                 <span>Opening Balance</span>

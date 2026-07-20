@@ -137,4 +137,82 @@ body {
   .print\:hidden, .no-print {
     display: none !important;
   }
+
+  /* ==========================================
+     MULTI-PAGE LEDGER PRINT
+     Scoped to body.printing-ledger so invoices
+     (sales / purchase / challan) keep the
+     single-page absolute-positioned layout above.
+     ========================================== */
+
+  /* The absolute + overflow:hidden trick above can only ever render one
+     page. For ledgers we collapse the dashboard chrome instead so
+     #pdf-area sits in normal flow and paginates naturally. */
+  body.printing-ledger header,
+  body.printing-ledger aside {
+    display: none !important;
+  }
+
+  body.printing-ledger * {
+    visibility: visible !important;
+  }
+
+  body.printing-ledger #pdf-area {
+    position: static !important;
+    width: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Horizontal scroll wrappers clip content when printed */
+  body.printing-ledger #pdf-area .overflow-x-auto,
+  body.printing-ledger #pdf-area .overflow-auto,
+  body.printing-ledger .ledger-export-area {
+    overflow: visible !important;
+  }
+
+  /* Repeat the column headers on every page */
+  body.printing-ledger #pdf-area thead {
+    display: table-header-group !important;
+  }
+
+  body.printing-ledger #pdf-area tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* Never slice a row in half across a page boundary.
+     Applied at <tr> level only — adding it to <td> as well makes Chrome
+     break far more conservatively and wastes ~25% of each page. */
+  body.printing-ledger #pdf-area tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
+/* ==========================================
+   MULTI-PAGE LEDGER PDF (html2pdf / html2canvas)
+   @media print never applies during html2canvas
+   capture, so these must live outside it.
+   ========================================== */
+.pdf-export .ledger-export-area,
+.pdf-export .ledger-export-area .overflow-x-auto,
+.pdf-export .ledger-export-area .overflow-auto {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.pdf-export .ledger-export-area thead {
+  display: table-header-group;
+}
+
+.pdf-export .ledger-export-area tfoot {
+  display: table-footer-group;
+}
+
+.pdf-export .ledger-export-area tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }

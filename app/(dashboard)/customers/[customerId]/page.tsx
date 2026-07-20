@@ -359,7 +359,17 @@ export default function CustomerLedgerPage(): JSX.Element {
   /* ---------------------------------------------
      PDF + PRINT
   ----------------------------------------------*/
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    // Enables the multi-page print rules in globals.css. Invoices deliberately
+    // keep the single-page layout, so this is opt-in per page.
+    document.body.classList.add("printing-ledger");
+    const cleanup = () => {
+      document.body.classList.remove("printing-ledger");
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+  };
 
   const handlePDF = async () => {
     const fileName = `ledger-${(customer?.name ?? "customer")
@@ -469,7 +479,7 @@ export default function CustomerLedgerPage(): JSX.Element {
       </div>
 
       {/* LEDGER TABLE */}
-      <div id="pdf-area" className="bg-white border border-gray-300">
+      <div id="pdf-area" className="bg-white border border-gray-300 ledger-export-area">
 
  {/* PRINT HEADER */}
 <div className="ledger-print-header hidden print:block mb-6">
