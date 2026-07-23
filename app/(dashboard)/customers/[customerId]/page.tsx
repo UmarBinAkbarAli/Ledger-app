@@ -377,7 +377,7 @@ export default function CustomerLedgerPage(): JSX.Element {
       .replace(/\s+/g, "_")}.pdf`;
     setGeneratingPDF(true);
     try {
-      await generatePDF("pdf-area", fileName);
+      await generatePDF("pdf-area", fileName, { paginateRows: true });
     } finally {
       setGeneratingPDF(false);
     }
