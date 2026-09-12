@@ -216,9 +216,12 @@ export default function IncomeForm({
       <select
         className="w-full border p-2 rounded"
         value={paymentMethod}
-        onChange={(e) =>
-          setPaymentMethod(e.target.value as "CASH" | "BANK")
-        }
+        onChange={(e) => {
+          const next = e.target.value as "CASH" | "BANK";
+          // Clear any previously picked bank so a CASH entry never carries a bankName
+          if (next === "CASH") setBankName("");
+          setPaymentMethod(next);
+        }}
       >
         <option value="CASH">Cash</option>
         <option value="BANK">Bank</option>
