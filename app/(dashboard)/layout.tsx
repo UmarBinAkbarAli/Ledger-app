@@ -70,9 +70,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const canManageProfile = hasPermission(Permission.MANAGE_COMPANY_PROFILE);
 
   return (
-    <div className="min-h-screen bg-background-light flex flex-col">
+    <div className="h-screen bg-background-light flex flex-col overflow-hidden">
       {/* TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-50 border-b border-border-light bg-white/90 backdrop-blur-md">
+      <header className="shrink-0 z-50 border-b border-border-light bg-white/90 backdrop-blur-md">
         <div className="flex items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-4">
             <div className="size-10 flex items-center justify-center bg-primary-light rounded-full text-primary">
@@ -108,14 +108,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* 🔴 Offline Banner */}
       {!online && (
-        <div className="bg-red-600 text-white text-center py-2 z-40">
+        <div className="shrink-0 bg-red-600 text-white text-center py-2 z-40">
           You are offline. Changes will sync automatically once you are online.
         </div>
       )}
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
-        <aside className="w-64 bg-white shadow-md p-5 space-y-4 hidden lg:block">
+        <aside className="w-64 shrink-0 bg-white shadow-md p-5 space-y-4 hidden lg:block overflow-y-auto">
           <h2 className="text-xl font-bold mb-6 text-text-primary">Menu</h2>
 
           {showBackButton && (
@@ -200,7 +200,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Page content */}
-        <main className="flex-1">
+        <main className="flex-1 min-w-0 overflow-y-auto">
           {children}
         </main>
       </div>
