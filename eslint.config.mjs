@@ -13,6 +13,10 @@ const eslintConfig = defineConfig([
       // This rule targets the Pages Router (pages/_document.js). In the App Router,
       // fonts linked in the root app/layout.tsx already load on every page.
       "@next/next/no-page-custom-font": "off",
+      // Remaining hits are the standard "set loading=true, then fetch" pattern (also used in
+      // React's own docs), which costs one extra render but isn't a bug. Real misuses
+      // (derived state, prop syncing) were refactored away. Keep visible as a warning.
+      "react-hooks/set-state-in-effect": "warn",
       // Allow intentionally-unused parameters/variables when prefixed with "_".
       "@typescript-eslint/no-unused-vars": [
         "warn",
