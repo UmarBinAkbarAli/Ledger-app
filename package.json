@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-emulator.mjs",
+    "dev:live": "echo WARNING: connected to the LIVE Firebase database - changes here affect the real app && next dev",
+    "emulators": "node scripts/emulators-start.mjs",
+    "emulator:pull": "node scripts/emulator-pull-prod.mjs",
+    "emulator:seed": "node scripts/emulator-seed.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
@@ -31,6 +35,9 @@
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.22",
     "baseline-browser-mapping": "^2.9.19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.1.1",
+    "firebase-tools": "^14.27.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
     "typescript": "^5.0.0"

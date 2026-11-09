@@ -21,7 +21,23 @@ function initializeAdminApp(): App {
   if (apps.length > 0) {
     return getApp();
   }
-  
+
+  // Local emulator mode (set by scripts/dev-emulator.mjs). The Admin SDK routes all
+  // Firestore/Auth calls to the emulators when these env vars are set; we also
+  // initialize WITHOUT production credentials and require a "demo-" project ID,
+  // so a misconfiguration fails instead of reaching the live project.
+  if (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    const projectId = process.env.FIREBASE_EMULATOR_PROJECT_ID || "demo-ledger";
+    if (!projectId.startsWith("demo-")) {
+      throw new Error(`Emulator mode requires a "demo-" project ID (got "${projectId}").`);
+    }
+    if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+      throw new Error("Emulator mode needs BOTH FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST set.");
+    }
+    console.log(`🧪 Firebase Admin using local emulators (project "${projectId}")`);
+    return initializeApp({ projectId });
+  }
+
   const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),

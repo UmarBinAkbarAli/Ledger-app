@@ -50,3 +50,11 @@ next-env.d.ts
 node_modules.zip
 *.zip
 service-key.json
+
+# Firebase emulator (local testing) — contains copies of real data, never commit
+/emulator-data/
+/emulator-seed/
+/.next-emulator/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

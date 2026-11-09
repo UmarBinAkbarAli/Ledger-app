@@ -5,16 +5,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev            # Next.js dev server on http://localhost:3000
+npm run dev            # Dev server on http://localhost:3000 against the LOCAL emulator (needs `npm run emulators` running — see below)
 npm run build          # Production build (also the main type-check — there is no separate typecheck script)
-npm run lint           # ESLint (eslint-config-next core-web-vitals + typescript, flat config)
+npm run lint           # `eslint .` with flat config (eslint-config-next core-web-vitals + typescript)
+                       # Existing code has ~580 pre-existing findings (mostly no-explicit-any); lint is not a build gate
 npx tsc --noEmit       # Type-check without building
+npm start              # `next start`; `server.js` is an alternative custom HTTP wrapper for hosts that need one
 
 firebase deploy --only firestore:rules   # Deploy firestore.rules (run `firebase login --reauth` first if it fails)
+firebase deploy --only storage           # Deploy storage.rules
 node scripts/<name>.mjs                  # One-off admin/migration scripts (see below)
 ```
 
 There is no test suite. `npm run build` is the closest thing to a full verification; run it after non-trivial changes.
+
+### Local development ALWAYS uses the Firebase Emulator
+
+**Rule: local work (features, bug fixes, testing) runs against the local emulator, never the live Firebase project.** Live Firebase (`ledger-app-for-boxilla`) is only for the deployed app. Do not run `npm run dev:live`, `firebase deploy`, or any `scripts/*.mjs` that writes to production unless the user explicitly asks for that specific action.
+
+```bash
+npm run emulators       # terminal 1: Auth + Firestore emulators (UI at http://127.0.0.1:4000); Ctrl+C saves to ./emulator-data
+npm run dev             # terminal 2: app at http://localhost:3000, wired to the emulators (refuses to start if they're down)
+npm run dev:live        # DANGER: localhost against the LIVE database — only on explicit request
+npm run emulator:pull   # READ-ONLY snapshot of live data + auth users → emulator-seed/prod-snapshot.json
+npm run emulator:seed   # wipe emulator, load the snapshot; every user's password becomes "test1234"
+```
+
+How it's isolated: `scripts/dev-emulator.mjs` sets `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true` plus `FIRESTORE_EMULATOR_HOST`/`FIREBASE_AUTH_EMULATOR_HOST`. `lib/firebase.ts` then forces project `demo-ledger` (Firebase treats `demo-*` as emulator-only), uses an in-memory cache, and connects to `127.0.0.1:8085`/`:9099`; `lib/firebaseAdmin.ts` initializes without credentials; `next.config.js` uses a separate `.next-emulator` build dir and adds the emulator hosts to CSP connect-src. None of this is active in `dev:live`, `build`, or production (Vercel runs `next build`, so the deployed app always uses the live project). New features that add a collection also need a `firestore.rules` block — test it in the emulator, which enforces the rules. Firestore emulator is on **8085** (8080 is taken on this machine). The emulator also enforces `firestore.rules`, so rule changes can be tested before `firebase deploy`. `emulator-data/` and `emulator-seed/` contain copies of real data and are gitignored.
 
 Requires `.env.local` (copy from `.env.example`). `lib/firebase.ts` throws at import time if any `NEXT_PUBLIC_FIREBASE_*` var is missing, so a missing env file breaks the whole app, not just one page.
 
