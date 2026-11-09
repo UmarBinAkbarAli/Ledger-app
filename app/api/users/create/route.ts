@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebaseAdmin";
-import { UserRole, DEFAULT_ROLE } from "@/lib/roles";
+import { UserRole } from "@/lib/roles";
 import {
   validateEmail,
   validateDisplayName,
@@ -21,13 +21,6 @@ import { logAuditEventServer, AuditAction, createAuditDetails } from "@/lib/audi
 import { requireAdmin } from "@/lib/adminAuth";
 import { applyStrictRateLimit } from "@/lib/rateLimiterEnhanced";
 import { sendPasswordResetEmail } from "@/lib/emailService";
-
-interface CreateUserRequest {
-  email: string;
-  displayName: string;
-  role: UserRole;
-  password?: string; // optional; if not provided, user must reset password
-}
 
 interface CreateUserResponse {
   success: boolean;
@@ -44,7 +37,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
   let createdUserUid: string | undefined;
   let decodedToken: any;
   let requestBody: any;
-  let resetLink: string | null = null;
   let usedTempPassword = false;
 
   try {
@@ -75,7 +67,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
           businessId: decodedToken.uid
         });
         logger.info("✅ Auto-set businessId in custom claims");
-      } catch (e) {
+      } catch {
         logger.warn("⚠️ Could not auto-set businessId in custom claims");
       }
 
@@ -85,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
           businessId: decodedToken.uid
         });
         logger.info("✅ Auto-set businessId in Firestore");
-      } catch (e) {
+      } catch {
         logger.warn("⚠️ Could not auto-set businessId in Firestore");
       }
     }
@@ -182,7 +174,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
       }
       await adminAuth.setCustomUserClaims(userRecord.uid, customClaims);
       logger.info("✅ Custom claims set with role:", role, "businessId:", businessId);
-    } catch (e) {
+    } catch {
       logger.error("❌ Could not set custom claims, rolling back user creation");
       try {
         await adminAuth.deleteUser(userRecord.uid);
@@ -215,7 +207,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateUse
 
       await adminDb.collection("users").doc(userRecord.uid).set(userDocData);
       logger.info("✅ Firestore user document created successfully");
-    } catch (firestoreError) {
+    } catch {
       logger.error("❌ Could not create Firestore document, rolling back user creation");
       try {
         await adminAuth.deleteUser(userRecord.uid);

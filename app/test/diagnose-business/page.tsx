@@ -256,7 +256,7 @@ export default function DiagnoseBusinessPage() {
           ⚠️ Admin Tool: Business Account Diagnosis & Repair
         </p>
         <p className="text-yellow-800 text-sm mb-2">
-          This tool diagnoses why users might show as "pending" or why delivery challans don't sync across users in the same business.
+          This tool diagnoses why users might show as &quot;pending&quot; or why delivery challans don&apos;t sync across users in the same business.
         </p>
         <p className="text-green-800 text-sm font-semibold">
           🔒 DATA SAFETY GUARANTEE:

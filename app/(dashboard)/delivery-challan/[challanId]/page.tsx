@@ -287,13 +287,13 @@ export default function ViewChallanPage() {
         {/* Footer - Signatures */}
         <div className="border-x-2 border-b-2 border-black grid grid-cols-3 text-sm">
           <div className="border-r border-black p-4 text-center">
-            <p className="mb-12">Receiver's Name</p>
+            <p className="mb-12">Receiver&apos;s Name</p>
             <div className="border-t border-black pt-1">
               <p className="text-xs">{challan.receiverName || ""}</p>
             </div>
           </div>
           <div className="border-r border-black p-4 text-center">
-            <p className="mb-12">Receiver's Signature</p>
+            <p className="mb-12">Receiver&apos;s Signature</p>
             <div className="border-t border-black pt-1">
               <p className="text-xs">&nbsp;</p>
             </div>
@@ -364,11 +364,11 @@ export default function ViewChallanPage() {
                 {/* Footer signatures */}
                 <div style={{ display: 'flex', marginTop: 8, fontSize: 11 }}>
                   <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
-                    <div style={{ marginBottom: 36 }}>Receiver's Name</div>
+                    <div style={{ marginBottom: 36 }}>Receiver&apos;s Name</div>
                     <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>{challan.receiverName || ''}</div>
                   </div>
                   <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid #000', padding: 6 }}>
-                    <div style={{ marginBottom: 36 }}>Receiver's Signature</div>
+                    <div style={{ marginBottom: 36 }}>Receiver&apos;s Signature</div>
                     <div style={{ borderTop: '1px solid #000', paddingTop: 4 }}>&nbsp;</div>
                   </div>
                   <div style={{ flex: 1, textAlign: 'center', padding: 6 }}>

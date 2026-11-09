@@ -11,8 +11,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  limit,
   doc,
   getDoc,
 } from "firebase/firestore";
@@ -29,7 +27,6 @@ type Item = {
 export default function AddPurchasePage() {
   // Supplier header fields (mirror sale invoice fields but for supplier)
   const [supplierId, setSupplierId] = useState("");
-  const [supplierName, setSupplierName] = useState("");
   const [supplierCompany, setSupplierCompany] = useState("");
   const [supplierAddress, setSupplierAddress] = useState("");
   const [supplierPhone, setSupplierPhone] = useState("");
@@ -81,7 +78,6 @@ export default function AddPurchasePage() {
     const d: any = snap.data();
 
     setSupplierId(d.supplierId || "");
-    setSupplierName(d.supplierName || "");
     setSupplierCompany(d.supplierCompany || d.supplierName || "");
     setSupplierAddress(d.supplierAddress || "");
     setSupplierPhone(d.supplierPhone || "");
@@ -212,7 +208,6 @@ export default function AddPurchasePage() {
     const found = suppliers.find((s) => s.id === preSupplierId);
     if (found) {
       setSupplierId(found.id);
-      setSupplierName(found.name || found.supplierName || "");
       setSupplierCompany(found.company || found.supplierCompany || found.name || found.supplierName || "");
       setSupplierAddress(found.address || found.supplierAddress || "");
       setSupplierPhone(found.phone || found.supplierPhone || "");
@@ -237,7 +232,6 @@ export default function AddPurchasePage() {
 
   const handleSelectSupplier = (c: any) => {
     setSupplierId(c.id);
-    setSupplierName(c.name || c.supplierName || "");
     setSupplierCompany(c.company || c.supplierCompany || c.name || c.supplierName || "");
     setSupplierAddress(c.address || c.supplierAddress || "");
     setSupplierPhone(c.phone || c.supplierPhone || "");
@@ -362,7 +356,6 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
 
       // reset form (keep autoBill)
       setSupplierId("");
-      setSupplierName("");
       setSupplierCompany("");
       setSupplierAddress("");
       setSupplierPhone("");
@@ -418,7 +411,6 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
                 value={supplierCompany}
                 onChange={(e) => {
                   setSupplierCompany(e.target.value);
-                  setSupplierName("");
                   setSupplierAddress("");
                   setSupplierPhone("");
                   setShowDropdown(true);

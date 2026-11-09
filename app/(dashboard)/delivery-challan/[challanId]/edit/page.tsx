@@ -33,7 +33,6 @@ export default function EditDeliveryChallanPage() {
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerNote, setCustomerNote] = useState("");
   const [status, setStatus] = useState("pending");
-  const [businessId, setBusinessId] = useState<string | null>(null);
 
   // Items
   const [items, setItems] = useState<Item[]>([
@@ -58,7 +57,6 @@ export default function EditDeliveryChallanPage() {
 
         const userDoc = await getDoc(doc(db, "users", user.uid));
         const bizId = userDoc.exists() ? userDoc.data()?.businessId ?? null : null;
-        setBusinessId(bizId);
 
         const byBusiness = bizId
           ? query(collection(db, "customers"), where("businessId", "==", bizId))

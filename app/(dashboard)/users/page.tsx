@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, getDocs, where, doc, getDoc } from "firebase/firestore";
 import { useUserRole } from "@/lib/useUserRole";
-import { UserProfile, UserStatus } from "@/lib/userSchema";
+import { UserProfile } from "@/lib/userSchema";
 import { ROLE_LABELS } from "@/lib/roles";
 
 interface AuthUserInfo {
@@ -120,7 +120,7 @@ export default function UsersPage() {
         console.warn("Legacy admin detected: missing businessId; showing only legacy users.");
       }
 
-      let userList: UserProfile[] = [];
+      const userList: UserProfile[] = [];
       userMap.forEach((userData) => {
         // EXCLUDE ADMIN USERS - Only show employees created by this admin
         if (userData.role === "admin") {
@@ -328,7 +328,7 @@ export default function UsersPage() {
     <div className="max-w-6xl mx-auto p-6">
       {legacyAdmin && (
         <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 p-4 text-yellow-800 flex items-center justify-between gap-3">
-          <span>Your admin profile is missing business access. This can hide users and cause "first login" pending statuses.</span>
+          <span>Your admin profile is missing business access. This can hide users and cause &quot;first login&quot; pending statuses.</span>
           <button
             onClick={handleRepairBusiness}
             disabled={repairingBusiness}

@@ -5,6 +5,26 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // next.config.js sets `images.unoptimized: true`, so next/image gives no
+      // optimization here — and logos must be plain <img> for html2canvas PDF capture.
+      "@next/next/no-img-element": "off",
+      // This rule targets the Pages Router (pages/_document.js). In the App Router,
+      // fonts linked in the root app/layout.tsx already load on every page.
+      "@next/next/no-page-custom-font": "off",
+      // Allow intentionally-unused parameters/variables when prefixed with "_".
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    // Plain CommonJS Node entry point (custom server), not bundled by Next.
+    files: ["server.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -13,6 +33,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated/vendored files, not app source:
+    "public/workbox-*.js",
   ]),
 ]);
 

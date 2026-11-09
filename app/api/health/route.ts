@@ -66,11 +66,11 @@ export async function GET() {
     }
 
     // Try to get Firestore
-    const db = getFirestore(adminApp);
+    getFirestore(adminApp);
     console.log("✅ Firestore client obtained");
 
     // Try to get Auth
-    const auth = getAuth(adminApp);
+    getAuth(adminApp);
     console.log("✅ Auth client obtained");
 
     return NextResponse.json(

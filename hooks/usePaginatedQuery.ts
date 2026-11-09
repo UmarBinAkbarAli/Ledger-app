@@ -23,7 +23,7 @@ export interface PaginationState<T> {
   error: string;
 }
 
-export interface PaginationActions<T> {
+export interface PaginationActions {
   loadMore: () => Promise<void>;
   reset: () => Promise<void>;
   setError: (error: string) => void;
@@ -45,7 +45,7 @@ export function usePaginatedQuery<T extends { id: string }>({
   dataTransform,
 }: UsePaginatedQueryOptions<T>): [
   PaginationState<T>,
-  PaginationActions<T>
+  PaginationActions
 ] {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);

@@ -232,14 +232,14 @@ export default function LogoDebugPage() {
               <h2 className="font-semibold mb-2 text-orange-800">⚠️ Google Drive Logo Detected</h2>
               <p className="text-sm mb-2">Your logo is hosted on Google Drive. Common issues:</p>
               <ul className="text-sm space-y-1 ml-4 list-disc mb-3">
-                <li>File may not be set to "Anyone with the link can view"</li>
+                <li>File may not be set to &quot;Anyone with the link can view&quot;</li>
                 <li>Corporate network may block Google Drive</li>
                 <li>URL needs to be in direct download format</li>
               </ul>
               <p className="text-sm font-semibold">Recommended Fix:</p>
               <ol className="text-sm space-y-1 ml-4 list-decimal">
                 <li>Right-click your logo file in Google Drive</li>
-                <li>Select "Share" → "Anyone with the link"</li>
+                <li>Select &quot;Share&quot; → &quot;Anyone with the link&quot;</li>
                 <li>Copy the sharing link</li>
                 <li>Go to Settings → Profile and paste the link again</li>
                 <li>Or upload the logo directly (recommended)</li>
@@ -251,7 +251,7 @@ export default function LogoDebugPage() {
           {!results.businessExists && (
             <div className="bg-red-50 p-4 rounded border-l-4 border-red-500">
               <h2 className="font-semibold mb-2 text-red-800">❌ Business Record Missing</h2>
-              <p className="text-sm mb-2">Your business record doesn't exist. This is causing the logo to not display.</p>
+              <p className="text-sm mb-2">Your business record doesn&apos;t exist. This is causing the logo to not display.</p>
               <p className="text-sm font-semibold">Fix: Go to <a href="/test/diagnose-business" className="text-blue-600 underline">/test/diagnose-business</a> and click Repair</p>
             </div>
           )}
@@ -276,7 +276,7 @@ export default function LogoDebugPage() {
             <div className="bg-green-50 p-4 rounded border-l-4 border-green-500">
               <h2 className="font-semibold mb-2 text-green-800">✅ Everything Looks Good!</h2>
               <p className="text-sm">Logo is properly configured in both collections.</p>
-              <p className="text-sm mt-2">If the logo still doesn't show when printing, it might be a Google Drive permissions issue or the image takes too long to load.</p>
+              <p className="text-sm mt-2">If the logo still doesn&apos;t show when printing, it might be a Google Drive permissions issue or the image takes too long to load.</p>
             </div>
           )}
         </div>

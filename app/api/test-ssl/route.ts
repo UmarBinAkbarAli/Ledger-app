@@ -2,10 +2,10 @@
  * Test endpoint to verify SSL and Firebase Admin are working
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   // ✅ SECURITY: Only allow this test endpoint in development
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json(

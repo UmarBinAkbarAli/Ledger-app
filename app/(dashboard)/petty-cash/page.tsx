@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, getDoc
+  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp
 } from "firebase/firestore";
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
 import { useBusiness } from "@/hooks/useBusiness";

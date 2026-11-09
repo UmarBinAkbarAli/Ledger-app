@@ -10,9 +10,7 @@ import {
   query,
   where,
   serverTimestamp,
-  updateDoc,
   doc,
-  increment,
 } from "firebase/firestore";
 
 export default function ExpenseForm({
@@ -23,7 +21,6 @@ export default function ExpenseForm({
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState("");
-  const [supplierName, setSupplierName] = useState("");
   const [supplierCompany, setSupplierCompany] = useState("");
   const [expenseType, setExpenseType] = useState<"SUPPLIER" | "OPERATIONAL">("SUPPLIER");
   const [categories, setCategories] = useState<any[]>([]);
@@ -257,7 +254,6 @@ if (expenseType === "OPERATIONAL") {
 
       setSupplierId("");
       setMessage("Payment added");
-      setSupplierName("");
       setSupplierCompany("");
       setSupplierId("");
       setAmount("");
@@ -296,7 +292,6 @@ if (expenseType === "OPERATIONAL") {
       value={supplierCompany}
       onChange={(e) => {
         setSupplierCompany(e.target.value);
-        setSupplierName("");
         setSupplierId("");
         setShowDropdown(true);
       }}
@@ -311,7 +306,6 @@ if (expenseType === "OPERATIONAL") {
             className="block w-full text-left p-2 hover:bg-gray-100"
             onClick={() => {
               setSupplierId(s.id);
-              setSupplierName(s.name || "");
               setSupplierCompany(s.company || s.name || "");
               setShowDropdown(false);
             }}

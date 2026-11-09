@@ -8,7 +8,6 @@ export default function CheckDuplicatesPage() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<string>("");
   const [error, setError] = useState("");
-  const [businessId, setBusinessId] = useState<string | null>(null);
 
   const checkDuplicates = async () => {
     setLoading(true);
@@ -33,8 +32,6 @@ export default function CheckDuplicatesPage() {
         const tokenResult = await user.getIdTokenResult();
         bizId = (tokenResult.claims.businessId as string | undefined) || null;
       }
-
-      setBusinessId(bizId);
 
       lines.push("🔍 DUPLICATE NUMBER CHECK REPORT");
       lines.push("=".repeat(80));

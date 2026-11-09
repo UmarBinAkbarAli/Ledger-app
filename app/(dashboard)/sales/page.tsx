@@ -43,7 +43,7 @@ export default function SalesListPage() {
   }), []);
 
   // Pagination hook
-  const [{ items: sales, loading, loadingMore, hasMore, error: paginationError }, { loadMore }] = 
+  const [{ items: sales, loading, loadingMore, hasMore }, { loadMore }] = 
     usePaginatedQuery<Sale>({
       collectionName: "sales",
       orderByField: "createdAt",

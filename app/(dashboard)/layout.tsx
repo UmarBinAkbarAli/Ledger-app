@@ -9,7 +9,7 @@ import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
 import useOnlineStatus from "@/app/hooks/useOnlineStatus";
 import { useUserRole } from "@/lib/useUserRole";
-import { Permission, UserRole } from "@/lib/roles";
+import { Permission } from "@/lib/roles";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -62,7 +62,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const canManagePurchases = hasPermission(Permission.MANAGE_PURCHASES);
   const canManageExpenses = hasPermission(Permission.MANAGE_EXPENSES);
   const canManageIncome = hasPermission(Permission.MANAGE_INCOME);
-  const canViewReports = hasPermission(Permission.VIEW_REPORTS);
   const canViewBankAccounts = hasPermission(Permission.VIEW_BANK_ACCOUNTS);
   const canManageSettings = hasPermission(Permission.MANAGE_SETTINGS);
   const canManageData = hasPermission(Permission.EXPORT_DATA);

@@ -136,7 +136,7 @@ export default function ProfileSettingsPage() {
         try {
           const tokenResult = await user.getIdTokenResult();
           businessId = (tokenResult.claims.businessId as string | undefined) || null;
-        } catch (err) {
+        } catch {
           console.warn("Could not get businessId from claims");
         }
       }

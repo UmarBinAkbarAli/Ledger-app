@@ -21,12 +21,6 @@ interface UpdateRoleRequest {
   role: UserRole;
 }
 
-interface UpdateRoleResponse {
-  success: boolean;
-  message: string;
-  error?: string;
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const adminAuth = getAdminAuth();
@@ -77,8 +71,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Verify tenant match and preserve businessId
     const userDoc = await adminDb.collection("users").doc(uid).get();
     const userData = userDoc.exists ? userDoc.data() || {} : null;
-    let { businessId: targetBusinessId, createdBy: targetCreatedBy } =
-      resolveTargetTenantInfo(userData, userRecord);
+    const targetTenantInfo = resolveTargetTenantInfo(userData, userRecord);
+    let targetBusinessId = targetTenantInfo.businessId;
+    const targetCreatedBy = targetTenantInfo.createdBy;
 
     // Backfill missing businessId using admin's businessId when allowed
     if (!targetBusinessId && adminBusinessId) {

@@ -195,11 +195,6 @@ export default function ExpenseListPage() {
     /* ---------------------------------------------
      DAILY TOTAL EXPENSE (TODAY)
   ----------------------------------------------*/
-  const today = new Date().toISOString().split("T")[0];
-
-  const todaysTotalExpense = expenseList
-    .filter((e) => e.date === today)
-    .reduce((sum, e) => sum + e.amount, 0);
 
               return (
                 <div className="p-6">

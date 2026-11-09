@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, runTransaction } from "firebase/firestore";
 import { usePaginatedQuery } from "@/hooks/usePaginatedQuery";
 import { FormAlert } from "@/components/FormAlert";
@@ -46,7 +46,7 @@ export default function IncomeListPage() {
   }, []);
 
   // Pagination hook
-  const [{ items: incomeList, loading, loadingMore, hasMore, error: paginationError }, { loadMore }] = 
+  const [{ items: incomeList, loading, loadingMore, hasMore }, { loadMore }] = 
     usePaginatedQuery<IncomeItem>({
       collectionName: "income",
       orderByField: "date",
@@ -99,11 +99,6 @@ export default function IncomeListPage() {
     /* ---------------------------------------------
      DAILY TOTAL INCOME (TODAY)
   ----------------------------------------------*/
-  const today = new Date().toISOString().split("T")[0];
-
-  const todaysTotalIncome = incomeList
-    .filter((i) => i.date === today)
-    .reduce((sum, i) => sum + i.amount, 0);
 
 
   /* ---------------------------------------------

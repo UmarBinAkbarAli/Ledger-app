@@ -13,9 +13,6 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { useBusiness } from "@/hooks/useBusiness";
 import {
-  updateDoc,
-  increment,
-  getDoc,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 

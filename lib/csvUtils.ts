@@ -575,6 +575,6 @@ export interface LedgerRow {
   balance: string;
 }
 
-export function exportLedger(ledgerData: LedgerRow[], entityName: string): string {
+export function exportLedger(ledgerData: LedgerRow[], _entityName: string): string {
   return generateCSV(ledgerData, ['date', 'type', 'particular', 'folio', 'debit', 'credit', 'balance']);
 }

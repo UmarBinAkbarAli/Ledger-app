@@ -15,12 +15,10 @@ import {
   orderBy,
   limit,
   doc,
-  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { persistentLocalCache } from "firebase/firestore";
 
 
 type Item = {
@@ -62,7 +60,6 @@ const challanIdsParam = searchParams.get("challanIds");
   // Challan states
   const [availableChallans, setAvailableChallans] = useState<Challan[]>([]);
   const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
-  const [showChallanDropdown, setShowChallanDropdown] = useState(false);
 
   // Invoice header
   const [billNumber, setBillNumber] = useState("");

@@ -219,7 +219,6 @@ export default function SupplierLedgerPage() {
     };
 
     loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId]);
 
   // Auto-refresh when page becomes visible

@@ -94,7 +94,7 @@ async function fixPurchaseDuplicates(businessId) {
     }
 
     console.log(`⚠️  Found ${duplicates.length} duplicate bill numbers:\n`);
-    duplicates.forEach(({ billNum, count, ids }) => {
+    duplicates.forEach(({ billNum, count }) => {
       console.log(`   - ${billNum}: ${count} occurrences`);
     });
 

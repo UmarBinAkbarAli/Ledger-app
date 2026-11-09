@@ -47,19 +47,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const userDoc = await adminDb.collection("users").doc(targetUid).get();
     const userData = userDoc.exists ? userDoc.data() || {} : {};
     
-    // ✅ SAFETY: Store original data for logging/rollback if needed
-    const originalData = {
-      firestoreExists: userDoc.exists,
-      firestoreData: { ...userData },
-      customClaims: { ...userRecord.customClaims },
-    };
-    
     console.log("📋 Repair request for:", targetUid);
     console.log("📋 Original Firestore businessId:", userData.businessId);
     console.log("📋 Original Claims businessId:", userRecord.customClaims?.businessId);
 
-    let { businessId: targetBusinessId, createdBy: targetCreatedBy } =
-      resolveTargetTenantInfo(userData, userRecord);
+    const targetTenantInfo = resolveTargetTenantInfo(userData, userRecord);
+    let targetBusinessId = targetTenantInfo.businessId;
+    const targetCreatedBy = targetTenantInfo.createdBy;
 
     // ✅ LOGIC: Determine the correct businessId
     // Priority: Firestore businessId > Admin businessId > User's own UID (for self-created admins)

@@ -153,7 +153,7 @@ export default function LedgerExportTab() {
       try {
         const data = await response.json();
         message = data.message || message;
-      } catch (err) {
+      } catch {
         // Ignore JSON parse errors
       }
       throw new Error(message);

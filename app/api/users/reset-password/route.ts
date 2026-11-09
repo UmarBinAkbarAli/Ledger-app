@@ -16,13 +16,6 @@ interface ResetPasswordRequest {
   uid: string;
 }
 
-interface ResetPasswordResponse {
-  success: boolean;
-  message: string;
-  resetLink?: string;
-  error?: string;
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const adminAuth = getAdminAuth();

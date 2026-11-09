@@ -16,12 +16,6 @@ interface DeleteUserRequest {
   uid: string;
 }
 
-interface DeleteUserResponse {
-  success: boolean;
-  message: string;
-  error?: string;
-}
-
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
     const adminAuth = getAdminAuth();

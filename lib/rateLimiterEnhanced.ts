@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RateLimiterMemory, RateLimiterRedis } from "rate-limiter-flexible";
 
 // Redis client for distributed rate limiting (production)
-let redisRateLimiter: RateLimiterRedis | null = null;
+const redisRateLimiter: RateLimiterRedis | null = null;
 
 // In-memory fallback (development)
 const memoryLimiter = new RateLimiterMemory({

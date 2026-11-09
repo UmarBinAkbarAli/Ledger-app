@@ -37,8 +37,6 @@ export default function SaleInvoicePage() {
   const items: any[] = Array.isArray(sale.items) ? sale.items : [];
   const subtotal = Number(sale.subtotal ?? items.reduce((s, it) => s + (Number(it.amount) || (Number(it.qty || 0) * Number(it.unitPrice || 0))), 0));
   const total = Number(sale.total ?? subtotal);
-  const paid = Number(sale.paidAmount ?? 0);
-  const remaining = total - paid;
 
   const fmt = (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -210,10 +208,10 @@ export default function SaleInvoicePage() {
           {/* Signature area */}
           <div className="mt-12 grid grid-cols-3 gap-6 text-center text-sm">
             <div>
-              <div className="border-t border-gray-300 pt-6">Receiver's Name</div>
+              <div className="border-t border-gray-300 pt-6">Receiver&apos;s Name</div>
             </div>
             <div>
-              <div className="border-t border-gray-300 pt-6">Receiver's Signature</div>
+              <div className="border-t border-gray-300 pt-6">Receiver&apos;s Signature</div>
             </div>
             <div>
               <div className="border-t border-gray-300 pt-6">Authorize Signature</div>

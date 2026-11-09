@@ -82,7 +82,7 @@ export default function LoginPage() {
       
       const targetPath = effectiveRole === UserRole.DELIVERY_CHALLAN ? "/delivery-challan" : "/dashboard";
       router.push(targetPath); // redirect after login
-    } catch (err: any) {
+    } catch {
       setError("Invalid email or password");
     }
 

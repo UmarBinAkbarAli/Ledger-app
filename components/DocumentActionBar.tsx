@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import ShareButton from "./ShareButton";
 
 interface DocumentActionBarProps {
@@ -45,7 +44,6 @@ export default function DocumentActionBar({
   actions,
   onError,
 }: DocumentActionBarProps) {
-  const router = useRouter();
 
   const handlePrint = () => {
     window.print();

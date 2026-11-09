@@ -1,18 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 
 export default function BackButton({ className = "" }: { className?: string }) {
   const router = useRouter();
-  const [canGoBack, setCanGoBack] = useState(false);
-
-  useEffect(() => {
-    // On client, check history length to determine if back would work
-    if (typeof window !== "undefined") {
-      setCanGoBack(window.history.length > 1);
-    }
-  }, []);
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {

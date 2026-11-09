@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, getDocFromServer } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { UserRole, ROLE_PERMISSIONS, Permission, hasPermission, isAdminRole, DEFAULT_ROLE } from "@/lib/roles";
+import { UserRole, Permission, hasPermission, isAdminRole, DEFAULT_ROLE } from "@/lib/roles";
 import { UserProfile } from "@/lib/userSchema";
 
 interface UseUserRoleReturn {

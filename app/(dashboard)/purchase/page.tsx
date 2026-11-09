@@ -177,11 +177,6 @@ export default function PurchaseListPage() {
   /* ---------------------------------------------
      DAILY TOTAL PURCHASE (TODAY)
   ----------------------------------------------*/
-  const today = new Date().toISOString().split("T")[0];
-
-  const todaysTotalPurchase = purchases
-    .filter((p) => p.date === today)
-    .reduce((sum, p) => sum + p.total, 0);
 
   /* ---------------------- UI ------------------------ */
   return (

@@ -21,11 +21,6 @@ export default function Button({
   const base =
   "inline-flex items-center justify-center gap-2 font-medium transition-all rounded-md active:scale-95 disabled:opacity-60 disabled:pointer-events-none";
 
-const sizeClasses = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2 text-sm",
-  lg: "px-5 py-3 text-base",
-};
 
 const variants = {
   primary:

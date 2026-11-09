@@ -42,7 +42,6 @@ export default function DashboardPage() {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [userName, setUserName] = useState("User");
   const [companyName, setCompanyName] = useState("Your Company");
   const [ownerName, setOwnerName] = useState("Owner Name");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("today");
@@ -82,7 +81,6 @@ export default function DashboardPage() {
     const loadUserProfile = async () => {
       const user = auth.currentUser;
       if (user) {
-        setUserName(user.displayName || user.email?.split('@')[0] || "User");
 
         // Fetch user profile from Firestore
         try {

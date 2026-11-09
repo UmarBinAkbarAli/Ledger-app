@@ -82,7 +82,7 @@ export function getAdminFirestore(): Firestore {
         });
         firestoreSettingsApplied = true;
         console.log("✅ Firestore Admin initialized with REST API");
-      } catch (error) {
+      } catch {
         console.warn("⚠️ Firestore settings already applied");
       }
     }

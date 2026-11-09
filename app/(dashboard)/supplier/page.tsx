@@ -52,7 +52,6 @@ export default function SuppliersPage() {
       const expensesByUser = query(collection(db, "expenses"), where("userId", "==", user.uid));
 
       let suppliersSnap, allPurchasesSnap, allExpensesSnap;
-      let usedFallback = false;
 
       try {
         // ✅ OPTIMIZED: Load ALL data in parallel with just 3 queries instead of N*2 queries
@@ -64,7 +63,6 @@ export default function SuppliersPage() {
       } catch (err: any) {
         if (err?.code === "permission-denied" && bizId) {
           console.warn("Business-scoped query denied, falling back to userId", { bizId, userId: user.uid });
-          usedFallback = true;
           [suppliersSnap, allPurchasesSnap, allExpensesSnap] = await Promise.all([
             getDocs(suppliersByUser),
             getDocs(purchasesByUser),

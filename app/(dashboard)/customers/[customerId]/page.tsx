@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -10,7 +10,6 @@ import {
   doc,
   query,
   where,
-  orderBy,
   DocumentData,
   QuerySnapshot,
 } from "firebase/firestore";
@@ -126,7 +125,6 @@ export default function CustomerLedgerPage(): JSX.Element {
         // Normalize helper
         const normalize = (v: any) =>
           (v || "").toString().trim().toLowerCase();
-        const custName = normalize(foundCustomer.name);
 
         /* -----------------------------
            LOAD SALES

@@ -26,7 +26,7 @@ export async function applyRateLimit(
   try {
     await limiter.consume(key, points);
     return null;
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         success: false,

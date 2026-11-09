@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { UserRole, ROLE_LABELS, DEFAULT_ROLE } from "@/lib/roles";
+import Link from "next/link";
+import { UserRole, ROLE_LABELS } from "@/lib/roles";
 import { useUserRole } from "@/lib/useUserRole";
 
 export default function CreateUserPage() {
   const router = useRouter();
-  const { role, loading: roleLoading, isAdmin } = useUserRole();
+  const { loading: roleLoading, isAdmin } = useUserRole();
 
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -201,7 +202,7 @@ export default function CreateUserPage() {
       </form>
 
       <p className="text-sm text-gray-600 mt-4 text-center">
-        <a href="/users" className="text-blue-600 hover:underline">Back to Users</a>
+        <Link href="/users" className="text-blue-600 hover:underline">Back to Users</Link>
       </p>
     </div>
   );
