@@ -75,6 +75,10 @@ Route groups: `app/(auth)/` (login, signup) and `app/(dashboard)/` (everything e
 
 Data pages follow a common shape: `useBusiness()` → build scoped Firestore query → `getDocs`/`onSnapshot` → render. Numbered documents (sales bill numbers, challan numbers, purchase numbers) are generated client-side by querying the latest doc `orderBy("createdAt","desc") limit(1)` — there is no server-side sequence, so collisions are possible under concurrent creation.
 
+### Production sheet (`/production`)
+
+Digital version of the client's paper "BOXILLA PACKAGES PRODUCTION SHEET". `lib/production.ts` holds the model (`productionJobs` collection: one doc = one paper row), the six PROCESS stages (`STAGES`: ROLL/PAPER with a source, DAI/MUN die/manual, PRIN flexo/professional/blank — blank counts as complete, TAR/Z-P pins/glue, REDY), and derived status. Jobs flow into delivery challans: `/delivery-challan/new?productionJobIds=a,b` pre-fills the challan, and challan items carry `productionJobId`. **Any create/edit/delete of a challan with linked items must go through `syncJobDeliveriesInTx` / `deleteChallanWithProductionSync`** (a transaction), which keeps each job's `deliveries[]` (partial deliveries, one entry per challan) and `deliveredQty` correct; challans without links keep the plain offline-friendly writes. Access: `Permission.MANAGE_PRODUCTION` (admin + delivery_challan). Jobs are loaded per tenant and filtered client-side (no composite indexes needed).
+
 ### PDF / print
 
 `components/PdfExportButton` → `app/utils/pdfGenerator.ts` uses `html2pdf.js` (html2canvas + jsPDF). The generator inserts spacer `<tr>` rows inside html2canvas's `onclone` so table rows don't split across A4 pages; the long comment there explains why the naive approaches fail. `document.body` gets a `pdf-export` class during capture, and `globals.css` has print/pdf-specific rules keyed on it.

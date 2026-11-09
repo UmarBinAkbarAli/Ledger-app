@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, serverTimestamp, runTransaction } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
+import { ChallanItemLike, hasProductionLinks, syncJobDeliveriesInTx } from "@/lib/production";
 
 interface Item {
   description: string;
   qty: number;
+  /** Set when the line came from a production job; kept so the job's deliveries stay in sync. */
+  productionJobId?: string;
 }
 
 interface Customer {
@@ -244,13 +247,33 @@ export default function EditDeliveryChallanPage() {
         items: items.map((item) => ({
           description: item.description.trim(),
           qty: Number(item.qty || 0),
+          ...(item.productionJobId ? { productionJobId: item.productionJobId } : {}),
         })),
         totalQuantity,
         status,
         updatedAt: serverTimestamp(),
       };
 
-      await updateDoc(doc(db, "deliveryChallans", challanId), challanData);
+      const challanRef = doc(db, "deliveryChallans", challanId);
+      const previousSnap = await getDoc(challanRef);
+      const previousItems = ((previousSnap.exists() ? previousSnap.data().items : []) || []) as ChallanItemLike[];
+
+      if (hasProductionLinks(challanData.items, previousItems)) {
+        // Update the challan and the linked production jobs' deliveries together.
+        await runTransaction(db, async (tx) => {
+          const fresh = await tx.get(challanRef);
+          await syncJobDeliveriesInTx(tx, {
+            challanId,
+            challanNumber,
+            date,
+            newItems: challanData.items,
+            previousItems: ((fresh.exists() ? fresh.data().items : []) || []) as ChallanItemLike[],
+          });
+          tx.update(challanRef, challanData);
+        });
+      } else {
+        await updateDoc(challanRef, challanData);
+      }
 
       setMessage("Delivery challan updated successfully!");
       setTimeout(() => {

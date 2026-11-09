@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { deleteChallanWithProductionSync } from "@/lib/production";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -178,7 +179,8 @@ export default function DeliveryChallanListPage() {
     if (!confirm(`Delete challan ${challanNumber}?`)) return;
 
     try {
-      await deleteDoc(doc(db, "deliveryChallans", id));
+      // Also removes this challan's deliveries from any linked production jobs.
+      await deleteChallanWithProductionSync(id);
       loadChallans();
     } catch (error) {
       console.error("Error deleting challan:", error);

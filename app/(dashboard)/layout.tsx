@@ -66,6 +66,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const canManageSettings = hasPermission(Permission.MANAGE_SETTINGS);
   const canManageData = hasPermission(Permission.EXPORT_DATA);
   const canManageDeliveryChallans = hasPermission(Permission.MANAGE_DELIVERY_CHALLANS);
+  const canManageProduction = hasPermission(Permission.MANAGE_PRODUCTION);
   const canManageProfile = hasPermission(Permission.MANAGE_COMPANY_PROFILE);
 
   return (
@@ -128,6 +129,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <Link className="hover:text-primary transition-colors text-text-primary" href="/dashboard">Dashboard</Link>
             )}
             
+            {canManageProduction && (
+              <Link className="hover:text-primary transition-colors text-text-primary" href="/production">Production Sheet</Link>
+            )}
             {canManageDeliveryChallans && (
               <Link className="hover:text-primary transition-colors text-text-primary" href="/delivery-challan">Delivery Challan</Link>
             )}

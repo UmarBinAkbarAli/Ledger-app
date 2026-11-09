@@ -31,6 +31,7 @@ export enum Permission {
   MANAGE_EXPENSES = "manage_expenses",
   MANAGE_INCOME = "manage_income",
   MANAGE_DELIVERY_CHALLANS = "manage_delivery_challans",
+  MANAGE_PRODUCTION = "manage_production",
 
   // Reporting & exports
   VIEW_REPORTS = "view_reports",
@@ -64,6 +65,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_EXPENSES,
     Permission.MANAGE_INCOME,
     Permission.MANAGE_DELIVERY_CHALLANS,
+    Permission.MANAGE_PRODUCTION,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_DATA,
     Permission.VIEW_BANK_ACCOUNTS,
@@ -73,8 +75,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 
   [UserRole.DELIVERY_CHALLAN]: [
-    // Delivery challan management and dashboard access
+    // Delivery challan + production management and dashboard access
     Permission.MANAGE_DELIVERY_CHALLANS,
+    Permission.MANAGE_PRODUCTION,
     Permission.ACCESS_DASHBOARD,
   ],
 };

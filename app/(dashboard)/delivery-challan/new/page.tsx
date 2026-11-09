@@ -2,13 +2,25 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction } from "firebase/firestore";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getPakistanDate } from "@/lib/dateUtils";
+import {
+  challanDescription,
+  hasProductionLinks,
+  jobRemainingQty,
+  normalizeJob,
+  PRODUCTION_COLLECTION,
+  syncJobDeliveriesInTx,
+} from "@/lib/production";
 
 interface Item {
   description: string;
   qty: string;
+  /** Set when the line comes from a production job (Production Sheet → challan). */
+  productionJobId?: string;
+  /** Qty still to deliver for that job when the challan was opened. */
+  remaining?: number;
 }
 
 interface Customer {
@@ -20,7 +32,10 @@ interface Customer {
 
 export default function NewDeliveryChallanPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const productionJobIdsParam = searchParams.get("productionJobIds");
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [productionNote, setProductionNote] = useState("");
 
   // Form fields
   const [challanNumber, setChallanNumber] = useState("");
@@ -107,6 +122,50 @@ export default function NewDeliveryChallanPage() {
 
     loadCustomers();
   }, []);
+
+  // Pre-fill from production jobs (Production Sheet → "Create Delivery Challan")
+  useEffect(() => {
+    const ids = (productionJobIdsParam || "").split(",").filter(Boolean);
+    if (ids.length === 0) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const snaps = await Promise.all(ids.map((id) => getDoc(doc(db, PRODUCTION_COLLECTION, id))));
+        const jobs = snaps.filter((s) => s.exists()).map((s) => normalizeJob(s.id, s.data()!));
+        if (cancelled || jobs.length === 0) return;
+        if (new Set(jobs.map((j) => j.customerId)).size > 1) {
+          setError("Selected production jobs belong to different parties. Create one challan per party.");
+          return;
+        }
+        const customerSnap = await getDoc(doc(db, "customers", jobs[0].customerId));
+        if (cancelled) return;
+        const c = customerSnap.exists() ? customerSnap.data() : {};
+        setSelectedCustomerId(jobs[0].customerId);
+        setCustomerName(c.name || "");
+        setCustomerCompany(c.company || c.name || jobs[0].partyName);
+        setCustomerAddress(c.address || "");
+        setItems(
+          jobs.map((j) => ({
+            description: challanDescription(j),
+            qty: String(jobRemainingQty(j)),
+            productionJobId: j.id,
+            remaining: jobRemainingQty(j),
+          }))
+        );
+        setProductionNote(
+          `From the Production Sheet: ${jobs.length} job${jobs.length > 1 ? "s" : ""}. Quantities default to what is left to deliver — lower them for a partial delivery.`
+        );
+      } catch (err) {
+        console.error("Error loading production jobs for challan:", err);
+        if (!cancelled) setError("Could not load the selected production jobs.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [productionJobIdsParam]);
 
   // Auto-generate challan number
   useEffect(() => {
@@ -247,6 +306,16 @@ export default function NewDeliveryChallanPage() {
       return;
     }
 
+    const overDelivered = items.find(
+      (item) => item.productionJobId && item.remaining !== undefined && Number(item.qty || 0) > item.remaining
+    );
+    if (overDelivered) {
+      setError(
+        `"${overDelivered.description}" has only ${overDelivered.remaining} left to deliver. If more was produced, update FINAL QTY on the production job first.`
+      );
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -267,6 +336,7 @@ export default function NewDeliveryChallanPage() {
         items: items.map((item) => ({
           description: item.description.trim(),
           qty: Number(item.qty || 0),
+          ...(item.productionJobId ? { productionJobId: item.productionJobId } : {}),
         })),
         totalQuantity,
         status: "pending",
@@ -277,7 +347,22 @@ export default function NewDeliveryChallanPage() {
       // Save challan and redirect to its preview page (so user can print/download)
       let docRef;
       try {
-        docRef = await addDoc(collection(db, "deliveryChallans"), challanData);
+        if (hasProductionLinks(challanData.items)) {
+          // Create the challan and record the delivery on each production job atomically.
+          const challanRef = doc(collection(db, "deliveryChallans"));
+          await runTransaction(db, async (tx) => {
+            await syncJobDeliveriesInTx(tx, {
+              challanId: challanRef.id,
+              challanNumber,
+              date,
+              newItems: challanData.items,
+            });
+            tx.set(challanRef, challanData);
+          });
+          docRef = challanRef;
+        } else {
+          docRef = await addDoc(collection(db, "deliveryChallans"), challanData);
+        }
       } catch (err: any) {
         // If Firestore denies create due to mismatched tenant, provide a clear message
         if (err?.code === "permission-denied") {
@@ -318,6 +403,12 @@ export default function NewDeliveryChallanPage() {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
+        </div>
+      )}
+
+      {productionNote && (
+        <div className="bg-blue-50 border border-blue-300 text-blue-800 px-4 py-3 rounded mb-4">
+          {productionNote}
         </div>
       )}
 
@@ -488,6 +579,11 @@ export default function NewDeliveryChallanPage() {
                         onChange={(e) => updateItem(idx, "qty", e.target.value)}
                         required
                       />
+                      {item.productionJobId && (
+                        <div className="text-[11px] text-gray-500 mt-1">
+                          Production job · left {item.remaining?.toLocaleString()}
+                        </div>
+                      )}
                     </td>
                     <td className="p-2 text-center">
                       <button

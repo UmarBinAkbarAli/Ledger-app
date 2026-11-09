@@ -204,6 +204,17 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated() && isBusinessMember(resource.data);
     }
 
+    // Production sheet jobs (admins + delivery staff; tenant-scoped like challans).
+    // Updates must keep the job inside the same tenant.
+    match /productionJobs/{id} {
+      allow create: if isAuthenticated() && canCreateInBusiness(request.resource.data);
+      allow read, delete: if isAuthenticated() && isBusinessMember(resource.data);
+      allow update: if isAuthenticated()
+        && isBusinessMember(resource.data)
+        && request.resource.data.businessId == resource.data.businessId
+        && request.resource.data.userId == resource.data.userId;
+    }
+
     // ======================================================
     // AUDIT LOGS
     // ======================================================
