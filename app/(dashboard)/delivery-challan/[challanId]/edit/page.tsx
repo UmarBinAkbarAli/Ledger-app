@@ -133,19 +133,19 @@ export default function EditDeliveryChallanPage() {
     loadChallan();
   }, [challanId]);
 
-  // Auto-resolve customerId for legacy challans that only stored name/company
-  useEffect(() => {
-    if (selectedCustomerId || customers.length === 0) return;
+  // Auto-resolve customerId for legacy challans that only stored name/company.
+  // Adjusted during render; it stops once selectedCustomerId is set.
+  if (!selectedCustomerId && customers.length > 0) {
     const normalize = (v: string) => v.trim().toLowerCase();
     const targetCompany = normalize(customerCompany);
     const targetName = normalize(customerName);
-    if (!targetCompany && !targetName) return;
-
-    const matched = customers.find((c) => {
-      const company = normalize(c.company || "");
-      const name = normalize(c.name || "");
-      return (targetCompany && company === targetCompany) || (!targetCompany && targetName && name === targetName);
-    });
+    const matched = (targetCompany || targetName)
+      ? customers.find((c) => {
+          const company = normalize(c.company || "");
+          const name = normalize(c.name || "");
+          return (targetCompany && company === targetCompany) || (!targetCompany && targetName && name === targetName);
+        })
+      : undefined;
 
     if (matched) {
       setSelectedCustomerId(matched.id);
@@ -153,7 +153,7 @@ export default function EditDeliveryChallanPage() {
       setCustomerCompany(matched.company || matched.name || "");
       setCustomerAddress(matched.address || "");
     }
-  }, [selectedCustomerId, customers, customerCompany, customerName]);
+  }
 
   // Handle customer selection
   const handleCustomerChange = (customerId: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { useRouter, useParams } from "next/navigation";
@@ -40,11 +40,7 @@ export default function ViewChallanPage() {
   const [loading, setLoading] = useState(true);
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  useEffect(() => {
-    loadChallan();
-  }, [challanId]);
-
-  const loadChallan = async () => {
+  const loadChallan = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) return;
 
@@ -76,7 +72,11 @@ export default function ViewChallanPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [challanId]);
+
+  useEffect(() => {
+    loadChallan();
+  }, [loadChallan]);
 
   const handlePrint = () => {
     // Open a new window with the printable HTML to avoid blank print preview issues.

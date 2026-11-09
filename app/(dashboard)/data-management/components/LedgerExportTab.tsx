@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { downloadCSV, downloadZip, exportLedger } from "@/lib/csvUtils";
@@ -21,12 +21,7 @@ export default function LedgerExportTab() {
   const [exportingAllSuppliers, setExportingAllSuppliers] = useState(false);
   const { businessId, loading: businessLoading } = useBusiness();
 
-  useEffect(() => {
-    if (businessLoading) return;
-    loadData();
-  }, [businessId, businessLoading]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const user = auth.currentUser;
@@ -59,7 +54,12 @@ export default function LedgerExportTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    if (businessLoading) return;
+    loadData();
+  }, [businessLoading, loadData]);
 
   const handleExportCustomerLedger = async () => {
     if (!selectedCustomer) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -8,11 +8,7 @@ export default function CheckLogoPage() {
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkLogo();
-  }, []);
-
-  const checkLogo = async () => {
+  const checkLogo = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -53,7 +49,11 @@ export default function CheckLogoPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkLogo();
+  }, [checkLogo]);
 
   if (loading) {
     return (

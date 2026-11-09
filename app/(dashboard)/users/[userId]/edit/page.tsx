@@ -23,13 +23,13 @@ export default function UserEditPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    if (roleLoading) return;
+  // Derived (not set in an effect) so non-admins see this message instead of an
+  // endless "Loading..." — the load below never runs for them.
+  const permissionError =
+    !roleLoading && !isAdmin ? "You do not have permission to edit users" : "";
 
-    if (!isAdmin) {
-      setError("You do not have permission to edit users");
-      return;
-    }
+  useEffect(() => {
+    if (roleLoading || !isAdmin) return;
 
     const loadUser = async () => {
       try {
@@ -107,7 +107,7 @@ export default function UserEditPage() {
     setSaving(false);
   };
 
-  if (roleLoading || loading) {
+  if (roleLoading || (loading && !permissionError)) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">Edit User</h1>
@@ -116,12 +116,12 @@ export default function UserEditPage() {
     );
   }
 
-  if (error && !user) {
+  if ((permissionError || error) && !user) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">Edit User</h1>
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
-          {error}
+          {permissionError || error}
         </div>
         <button
           onClick={() => router.back()}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   collection,
@@ -31,7 +31,7 @@ export default function PurchaseDataTab() {
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const { businessId, loading: businessLoading } = useBusiness();
 
-  const loadPurchases = async () => {
+  const loadPurchases = useCallback(async () => {
     setLoading(true);
     try {
       const user = auth.currentUser;
@@ -47,15 +47,9 @@ export default function PurchaseDataTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
 
-  useEffect(() => {
-    if (businessLoading) return;
-    loadPurchases();
-    loadSuppliers();
-  }, [businessId, businessLoading]);
-
-  const loadSuppliers = async () => {
+  const loadSuppliers = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (!user || !businessId) return;
@@ -71,7 +65,13 @@ export default function PurchaseDataTab() {
     } catch (err) {
       console.error("Error loading suppliers:", err);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    if (businessLoading) return;
+    loadPurchases();
+    loadSuppliers();
+  }, [businessLoading, loadPurchases, loadSuppliers]);
 
   const filterPurchasesForExport = () => {
     const from = fromDate ? new Date(fromDate) : null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   addDoc,
   collection,
@@ -19,7 +19,7 @@ export default function ExpenseCategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const { businessId, loading: businessLoading } = useBusiness();
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) return;
     if (businessLoading) return;
@@ -58,11 +58,11 @@ export default function ExpenseCategoriesPage() {
         ...d.data(),
       }))
     );
-  };
+  }, [businessId, businessLoading]);
 
   useEffect(() => {
     loadCategories();
-  }, [businessId, businessLoading]);
+  }, [loadCategories]);
 
   const addCategory = async () => {
     const user = auth.currentUser;

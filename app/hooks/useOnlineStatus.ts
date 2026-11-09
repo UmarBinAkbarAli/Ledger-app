@@ -1,29 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function subscribe(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+  };
+}
 
 export default function useOnlineStatus() {
-  // Start with true to avoid hydration mismatch (server always renders as online)
-  const [online, setOnline] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    setOnline(navigator.onLine);
-
-    const goOnline = () => setOnline(true);
-    const goOffline = () => setOnline(false);
-
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
-  }, []);
-
-  // Don't show offline banner until mounted (prevents hydration mismatch)
-  if (!mounted) return true;
-
-  return online;
+  return useSyncExternalStore(
+    subscribe,
+    () => navigator.onLine,
+    // Server render / hydration: always "online", so the offline banner never
+    // causes a hydration mismatch.
+    () => true
+  );
 }

@@ -57,9 +57,14 @@ export function usePaginatedQuery<T extends { id: string }>({
   // Use ref to avoid infinite loop from lastDoc in dependency array
   const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const scopeRef = useRef<{ field: "businessId" | "userId"; value: string } | null>(null);
+  // Incremented on every first-page load; results from an older load are ignored,
+  // so a slow earlier request can never overwrite newer data.
+  const requestIdRef = useRef(0);
 
   const fetchItems = useCallback(
     async (isNextPage = false) => {
+      const requestId = isNextPage ? requestIdRef.current : ++requestIdRef.current;
+      const isStale = () => requestId !== requestIdRef.current;
       try {
         const user = auth.currentUser;
         if (!user) {
@@ -115,6 +120,7 @@ export function usePaginatedQuery<T extends { id: string }>({
           }
         }
 
+        if (isStale()) return;
         scopeRef.current = effectiveScope;
 
         if (snap.empty) {
@@ -145,11 +151,14 @@ export function usePaginatedQuery<T extends { id: string }>({
 
         setError("");
       } catch (err: any) {
+        if (isStale()) return;
         console.error(err);
         setError("Failed to load items");
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (!isStale()) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [collectionName, pageSize, orderByField, orderDirection, dataTransform, businessId, businessLoading]

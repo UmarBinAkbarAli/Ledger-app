@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -54,9 +54,7 @@ export default function CustomerLedgerPage(): JSX.Element {
   const [customer, setCustomer] = useState<CustomerType | null>(null);
   const [sales, setSales] = useState<DocumentData[]>([]);
   const [payments, setPayments] = useState<DocumentData[]>([]);
-  const [rows, setRows] = useState<LedgerRow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [message, setMessage] = useState<string>("");
 
@@ -229,8 +227,9 @@ export default function CustomerLedgerPage(): JSX.Element {
   /* ---------------------------------------------
      Build Ledger Rows (date filters affect visibility only — balances are continuous)
   ----------------------------------------------*/
-  useEffect(() => {
-    if (!customer) return;
+  // Ledger rows + opening balance are derived from the loaded data and date range.
+  const { rows, openingBalance } = useMemo(() => {
+    if (!customer) return { rows: [] as LedgerRow[], openingBalance: 0 };
 
     const built: LedgerRow[] = [];
 
@@ -343,8 +342,7 @@ export default function CustomerLedgerPage(): JSX.Element {
       return { ...r, running: bal } as LedgerRow & { running: number };
     });
 
-    setRows(processed);
-    setOpeningBalance(opening);
+    return { rows: processed, openingBalance: opening };
   }, [customer, sales, payments, fromDate, toDate]);
 
   /* ---------------------------------------------

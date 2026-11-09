@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   collection,
   deleteDoc,
@@ -38,15 +38,21 @@ export default function OperationalExpensesPage() {
   const todayStr = new Date().toISOString().split('T')[0];
   const [fromDate, setFromDate] = useState<string>(todayStr);
   const [toDate, setToDate] = useState<string>(todayStr);
-  const [dateError, setDateError] = useState<string>('');
+  // Derived from the date inputs; no separate state to keep in sync.
+  const dateError =
+    fromDate && toDate && fromDate > toDate ? "Start date must be before or equal to end date." : "";
+  // Latest-request-wins guard for loadExpenses (dates can change quickly).
+  const loadRequestRef = useRef(0);
 
 
 
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) return;
     if (businessLoading) return;
 
+    const requestId = ++loadRequestRef.current;
+    const isStale = () => requestId !== loadRequestRef.current;
     setLoading(true);
 
     try {
@@ -92,6 +98,7 @@ export default function OperationalExpensesPage() {
         }
       }
 
+      if (isStale()) return;
       setExpenses(
         snap.docs.map((d) => {
           const data = d.data();
@@ -109,36 +116,19 @@ export default function OperationalExpensesPage() {
     } catch (err) {
       console.error("Error loading operational expenses:", err);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  };
+  }, [businessId, businessLoading, fromDate, toDate]);
 
-  // Load data when filter changes
-  // Initial load: show today's expenses by default
+  // Load on open (once business context is ready) and whenever the date range
+  // changes. Dates start at today, so the first load shows today's expenses.
   useEffect(() => {
-    if (businessLoading) return;
-    setCategorySearch("");
-    setShowCategoryDropdown(false);
-    setDateError('');
-    // Ensure dates default to today if somehow empty
-    setFromDate((d) => d || todayStr);
-    setToDate((d) => d || todayStr);
+    if (dateError || businessLoading) return;
     loadExpenses();
-  }, [businessLoading]);
+  }, [dateError, businessLoading, loadExpenses]);
 
-  // reload whenever date range changes
-  useEffect(() => {
-    // If both dates provided validate
-    if (fromDate && toDate && fromDate > toDate) {
-      setDateError("Start date must be before or equal to end date.");
-      return;
-    }
-    if (businessLoading) return;
-    setDateError("");
-    loadExpenses();
-  }, [fromDate, toDate, businessLoading]);
-
-  // Auto-refresh when page becomes visible
+  // Auto-refresh when page becomes visible (re-subscribes with current values,
+  // so it always reloads the currently selected range).
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -149,7 +139,7 @@ export default function OperationalExpensesPage() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  }, [businessLoading, loadExpenses]);
 
 
 const filteredExpenses = expenses.filter((e) => {
@@ -203,7 +193,11 @@ const uniqueCategories = Array.from(
                           <input type="date" className="border px-2 py-1 rounded text-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} />
                           <button
                             type="button"
-                            onClick={() => { setFromDate(todayStr); setToDate(todayStr); setDateError(''); loadExpenses(); }}
+                            onClick={() => {
+                              // Changing dates triggers a reload; if already today, reload directly.
+                              if (fromDate === todayStr && toDate === todayStr) loadExpenses();
+                              else { setFromDate(todayStr); setToDate(todayStr); }
+                            }}
                             className="px-3 py-1 rounded text-sm border bg-white"
                           >
                             Reset to Today
@@ -211,11 +205,7 @@ const uniqueCategories = Array.from(
                           <button
                             type="button"
                             onClick={() => {
-                              if (fromDate && toDate && fromDate > toDate) {
-                                setDateError('Start date must be before or equal to end date.');
-                                return;
-                              }
-                              setDateError('');
+                              if (dateError) return; // message is already shown
                               loadExpenses();
                             }}
                             className="px-3 py-1 rounded text-sm border bg-black text-white ml-2"

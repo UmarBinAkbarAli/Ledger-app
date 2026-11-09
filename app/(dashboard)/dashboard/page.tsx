@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, ReactNode, useEffect } from "react";
+import { useState, ReactNode, useEffect, useCallback, useRef } from "react";
 import IncomeForm from "@/components/forms/IncomeForm";
 import ExpenseForm from "@/components/forms/ExpenseForm";
 import TransferForm from "@/components/forms/TransferForm";
@@ -34,6 +34,110 @@ interface Transaction {
   category: string;
   amount: number;
 }
+
+// Get date range based on selected time period
+const getDateRange = (period: TimePeriod) => {
+  const today = getPakistanDate();
+  const todayDate = new Date(today);
+
+  switch (period) {
+    case "today": {
+      return {
+        start: today,
+        end: today,
+      };
+    }
+    case "thisMonth": {
+      const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+      return {
+        start: firstDay.toLocaleDateString("en-CA"),
+        end: today,
+      };
+    }
+    case "lastMonth": {
+      const firstDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+      return {
+        start: firstDayLastMonth.toLocaleDateString("en-CA"),
+        end: lastDayLastMonth.toLocaleDateString("en-CA"),
+      };
+    }
+    case "last7Days": {
+      const sevenDaysAgo = new Date(todayDate);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return {
+        start: sevenDaysAgo.toLocaleDateString("en-CA"),
+        end: today,
+      };
+    }
+    case "last30Days": {
+      const thirtyDaysAgo = new Date(todayDate);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return {
+        start: thirtyDaysAgo.toLocaleDateString("en-CA"),
+        end: today,
+      };
+    }
+  }
+};
+
+// Get previous period for comparison
+const getPreviousDateRange = (period: TimePeriod) => {
+  const today = getPakistanDate();
+  const todayDate = new Date(today);
+
+  switch (period) {
+    case "today": {
+      // Yesterday
+      const yesterday = new Date(todayDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        start: yesterday.toLocaleDateString("en-CA"),
+        end: yesterday.toLocaleDateString("en-CA"),
+      };
+    }
+    case "thisMonth": {
+      // Previous month
+      const firstDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+      return {
+        start: firstDayLastMonth.toLocaleDateString("en-CA"),
+        end: lastDayLastMonth.toLocaleDateString("en-CA"),
+      };
+    }
+    case "lastMonth": {
+      // Month before last month
+      const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth() - 2, 1);
+      const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 0);
+      return {
+        start: firstDay.toLocaleDateString("en-CA"),
+        end: lastDay.toLocaleDateString("en-CA"),
+      };
+    }
+    case "last7Days": {
+      // Previous 7 days
+      const fourteenDaysAgo = new Date(todayDate);
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const sevenDaysAgo = new Date(todayDate);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return {
+        start: fourteenDaysAgo.toLocaleDateString("en-CA"),
+        end: sevenDaysAgo.toLocaleDateString("en-CA"),
+      };
+    }
+    case "last30Days": {
+      // Previous 30 days
+      const sixtyDaysAgo = new Date(todayDate);
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const thirtyDaysAgo = new Date(todayDate);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return {
+        start: sixtyDaysAgo.toLocaleDateString("en-CA"),
+        end: thirtyDaysAgo.toLocaleDateString("en-CA"),
+      };
+    }
+  }
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -100,118 +204,17 @@ export default function DashboardPage() {
   }, []);
 
   // Load financial data when time period changes
-  useEffect(() => {
-    loadFinancialData();
-  }, [timePeriod]);
 
-  // Get date range based on selected time period
-  const getDateRange = (period: TimePeriod) => {
-    const today = getPakistanDate();
-    const todayDate = new Date(today);
+  // Latest-request-wins: switching periods quickly must not let a slower,
+  // older request overwrite the totals for the newly selected period.
+  const loadRequestRef = useRef(0);
 
-    switch (period) {
-      case "today": {
-        return {
-          start: today,
-          end: today,
-        };
-      }
-      case "thisMonth": {
-        const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-        return {
-          start: firstDay.toLocaleDateString("en-CA"),
-          end: today,
-        };
-      }
-      case "lastMonth": {
-        const firstDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
-        const lastDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
-        return {
-          start: firstDayLastMonth.toLocaleDateString("en-CA"),
-          end: lastDayLastMonth.toLocaleDateString("en-CA"),
-        };
-      }
-      case "last7Days": {
-        const sevenDaysAgo = new Date(todayDate);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return {
-          start: sevenDaysAgo.toLocaleDateString("en-CA"),
-          end: today,
-        };
-      }
-      case "last30Days": {
-        const thirtyDaysAgo = new Date(todayDate);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return {
-          start: thirtyDaysAgo.toLocaleDateString("en-CA"),
-          end: today,
-        };
-      }
-    }
-  };
-
-  // Get previous period for comparison
-  const getPreviousDateRange = (period: TimePeriod) => {
-    const today = getPakistanDate();
-    const todayDate = new Date(today);
-
-    switch (period) {
-      case "today": {
-        // Yesterday
-        const yesterday = new Date(todayDate);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return {
-          start: yesterday.toLocaleDateString("en-CA"),
-          end: yesterday.toLocaleDateString("en-CA"),
-        };
-      }
-      case "thisMonth": {
-        // Previous month
-        const firstDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 1);
-        const lastDayLastMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
-        return {
-          start: firstDayLastMonth.toLocaleDateString("en-CA"),
-          end: lastDayLastMonth.toLocaleDateString("en-CA"),
-        };
-      }
-      case "lastMonth": {
-        // Month before last month
-        const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth() - 2, 1);
-        const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() - 1, 0);
-        return {
-          start: firstDay.toLocaleDateString("en-CA"),
-          end: lastDay.toLocaleDateString("en-CA"),
-        };
-      }
-      case "last7Days": {
-        // Previous 7 days
-        const fourteenDaysAgo = new Date(todayDate);
-        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-        const sevenDaysAgo = new Date(todayDate);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        return {
-          start: fourteenDaysAgo.toLocaleDateString("en-CA"),
-          end: sevenDaysAgo.toLocaleDateString("en-CA"),
-        };
-      }
-      case "last30Days": {
-        // Previous 30 days
-        const sixtyDaysAgo = new Date(todayDate);
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-        const thirtyDaysAgo = new Date(todayDate);
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return {
-          start: sixtyDaysAgo.toLocaleDateString("en-CA"),
-          end: thirtyDaysAgo.toLocaleDateString("en-CA"),
-        };
-      }
-    }
-  };
-
-  const loadFinancialData = async () => {
+  const loadFinancialData = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) return;
 
+    const requestId = ++loadRequestRef.current;
+    const isStale = () => requestId !== loadRequestRef.current;
     setLoading(true);
 
     try {
@@ -325,6 +328,7 @@ export default function DashboardPage() {
         return ((current - previous) / previous) * 100;
       };
 
+      if (isStale()) return;
       setMetrics({
         totalSales,
         totalPurchases,
@@ -408,9 +412,13 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error loading financial data:", error);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
-  };
+  }, [timePeriod]);
+
+  useEffect(() => {
+    loadFinancialData();
+  }, [loadFinancialData]);
 
   // ✅ Show loading while checking admin status
   if (roleLoading) {

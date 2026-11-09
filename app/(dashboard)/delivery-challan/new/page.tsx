@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -40,7 +40,6 @@ export default function NewDeliveryChallanPage() {
 
   // Customers list
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<Customer[]>([]);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
   // UI
@@ -152,19 +151,14 @@ export default function NewDeliveryChallanPage() {
   }, [businessId]);
 
   // Filter companies real-time (search by company name)
-  useEffect(() => {
-    if (!customerCompany.trim()) {
-      setFilteredCompanies([]);
-      return;
-    }
-
+  const filteredCompanies = useMemo(() => {
+    if (!customerCompany.trim()) return [];
     const s = customerCompany.toLowerCase();
-    const filtered = customers.filter((c) => {
+    return customers.filter((c) => {
       const company = (c.company || "").toLowerCase();
       const name = (c.name || "").toLowerCase();
       return company.includes(s) || (!company && name.includes(s));
     });
-    setFilteredCompanies(filtered);
   }, [customerCompany, customers]);
 
   // Handle customer selection by id (used when selecting from company dropdown too)

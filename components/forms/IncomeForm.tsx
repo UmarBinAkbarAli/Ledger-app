@@ -44,7 +44,8 @@ export default function IncomeForm({
         const user = auth.currentUser;
         if (!user) return;
 
-        let bizId: string | null = businessId;
+        // Runs once on mount, when businessId state is still null; resolve it here.
+        let bizId: string | null = null;
         if (!bizId) {
           try {
             const userSnap = await getDoc(doc(db, "users", user.uid));
@@ -91,12 +92,13 @@ export default function IncomeForm({
     fetchCustomers();
   }, []);
 
-  /* Auto select customer from URL */
-  useEffect(() => {
-    if (preSelectedCustomerId && customerList.length > 0) {
-      setSelectedCustomer(preSelectedCustomerId);
-    }
-  }, [preSelectedCustomerId, customerList]);
+  /* Auto select customer from URL (once per URL value, after customers load).
+     Adjusting state during render is React's recommended alternative to an effect. */
+  const [appliedPreselect, setAppliedPreselect] = useState<string | null>(null);
+  if (preSelectedCustomerId && customerList.length > 0 && appliedPreselect !== preSelectedCustomerId) {
+    setAppliedPreselect(preSelectedCustomerId);
+    setSelectedCustomer(preSelectedCustomerId);
+  }
 
   /* Load banks */
   useEffect(() => {

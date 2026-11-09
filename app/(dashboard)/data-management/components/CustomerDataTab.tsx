@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   collection,
@@ -27,7 +27,7 @@ export default function CustomerDataTab() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const { businessId, loading: businessLoading } = useBusiness();
 
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     setLoading(true);
     try {
       const user = auth.currentUser;
@@ -43,12 +43,12 @@ export default function CustomerDataTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
 
   useEffect(() => {
     if (businessLoading) return;
     loadCustomers();
-  }, [businessId, businessLoading]);
+  }, [businessLoading, loadCustomers]);
 
   const handleExport = () => {
     if (customers.length === 0) {

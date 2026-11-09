@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { doc, runTransaction } from "firebase/firestore";
@@ -54,30 +54,27 @@ export default function IncomeListPage() {
       dataTransform,
     });
 
-  const [displayIncomeList, setDisplayIncomeList] = useState<IncomeItem[]>([]);
+  // IDs removed optimistically (deleted, or being deleted). Derived from the
+  // paginated list so "Load more" can never bring a deleted payment back.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
+  const displayIncomeList = useMemo(
+    () => incomeList.filter((i) => !hiddenIds.has(i.id)),
+    [incomeList, hiddenIds]
+  );
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Sync paginated items to display on change
-  // Sync paginated items to display on change
-  useEffect(() => {
-    setDisplayIncomeList(incomeList);
-  }, [incomeList]);
-
   /* ---------------------- DELETE INCOME (with Optimistic Update & Rollback) ---------------------- */
   const handleDelete = async (income: IncomeItem) => {
     if (!confirm("Are you sure you want to delete this payment?")) return;
 
-    // ✅ Store the current list in case we need to rollback
-    const previousIncomeList = displayIncomeList;
-
     try {
       // ✅ Optimistic update: remove from UI immediately
       setDeletingId(income.id);
-      setDisplayIncomeList((prev) => prev.filter((x) => x.id !== income.id));
+      setHiddenIds((prev) => new Set(prev).add(income.id));
       setError("");
 
       // ✅ Delete from Firestore
@@ -90,7 +87,11 @@ export default function IncomeListPage() {
     } catch (err: any) {
       console.error(err);
       // ✅ Rollback: restore the payment if deletion failed
-      setDisplayIncomeList(previousIncomeList);
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(income.id);
+        return next;
+      });
       setDeletingId(null);
       setError(getErrorMessage(err));
     }

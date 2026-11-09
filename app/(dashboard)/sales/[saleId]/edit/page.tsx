@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   doc,
@@ -38,7 +38,6 @@ export default function EditSalePage() {
 
   // Customer dropdown states
   const [customers, setCustomers] = useState<any[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
   // ================================
@@ -53,7 +52,6 @@ export default function EditSalePage() {
   // ITEMS
   // ================================
   const [items, setItems] = useState<Item[]>([]);
-  const [subtotal, setSubtotal] = useState(0);
 
   // ================================
   // LINKED CHALLANS (Read-only)
@@ -88,20 +86,14 @@ export default function EditSalePage() {
   }, []);
 
   // FILTER companies (fallback to name when company is empty)
-  useEffect(() => {
-    if (!customerCompany.trim()) {
-      setFilteredCustomers([]);
-      return;
-    }
-
+  const filteredCustomers = useMemo(() => {
+    if (!customerCompany.trim()) return [];
     const s = customerCompany.toLowerCase();
-    const filtered = customers.filter((c) => {
+    return customers.filter((c) => {
       const company = (c.company || "").toLowerCase();
       const name = (c.name || "").toLowerCase();
       return company.includes(s) || (!company && name.includes(s));
     });
-
-    setFilteredCustomers(filtered);
   }, [customerCompany, customers]);
 
   const handleSelectCustomer = (c: any) => {
@@ -143,7 +135,6 @@ export default function EditSalePage() {
         setTerms(data.terms || "CASH");
 
         setItems(data.items || []);
-        setSubtotal(Number(data.subtotal || 0));
 
         // Load linked challans
         setLinkedChallanIds(data.challanIds || []);
@@ -162,10 +153,10 @@ export default function EditSalePage() {
   // ================================
   // 3️⃣ UPDATE SUBTOTAL
   // ================================
-  useEffect(() => {
-    const s = items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
-    setSubtotal(s);
-  }, [items]);
+  const subtotal = useMemo(
+    () => items.reduce((sum, it) => sum + Number(it.amount || 0), 0),
+    [items]
+  );
 
   // ================================
   // 4️⃣ ITEM OPERATIONS

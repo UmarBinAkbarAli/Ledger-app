@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   addDoc,
@@ -19,7 +19,6 @@ export default function ExpenseForm({
   onSuccess?: () => void;
 }) {
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [supplierCompany, setSupplierCompany] = useState("");
   const [expenseType, setExpenseType] = useState<"SUPPLIER" | "OPERATIONAL">("SUPPLIER");
@@ -46,7 +45,8 @@ export default function ExpenseForm({
 
   const loadCategories = async () => {
     try {
-      let bizId: string | null = businessId;
+      // Runs once on mount, when businessId state is still null; resolve it here.
+      let bizId: string | null = null;
       if (!bizId) {
         try {
           const userSnap = await getDoc(doc(db, "users", user.uid));
@@ -91,7 +91,8 @@ export default function ExpenseForm({
         const user = auth.currentUser;
         if (!user) return;
 
-        let bizId: string | null = businessId;
+        // Runs once on mount, when businessId state is still null; resolve it here.
+        let bizId: string | null = null;
         if (!bizId) {
           try {
             const userSnap = await getDoc(doc(db, "users", user.uid));
@@ -137,19 +138,14 @@ export default function ExpenseForm({
     loadSuppliers();
   }, []);
 
-  useEffect(() => {
-    if (!supplierCompany.trim()) {
-      setFilteredSuppliers([]);
-      return;
-    }
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierCompany.trim()) return [];
     const s = supplierCompany.toLowerCase();
-    setFilteredSuppliers(
-      suppliers.filter((sup) => {
-        const company = (sup.company || "").toLowerCase();
-        const name = (sup.name || "").toLowerCase();
-        return company.includes(s) || (!company && name.includes(s));
-      })
-    );
+    return suppliers.filter((sup) => {
+      const company = (sup.company || "").toLowerCase();
+      const name = (sup.name || "").toLowerCase();
+      return company.includes(s) || (!company && name.includes(s));
+    });
   }, [supplierCompany, suppliers]);
 
   useEffect(() => {

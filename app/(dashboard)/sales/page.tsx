@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { db, auth } from "@/lib/firebase";
 import { doc, deleteDoc, writeBatch, getDoc, query, collection, where, getDocs } from "firebase/firestore";
@@ -53,12 +53,13 @@ export default function SalesListPage() {
 
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [displaySales, setDisplaySales] = useState<Sale[]>([]);
-
-  // Sync paginated items to display on change
-  useEffect(() => {
-    setDisplaySales(sales);
-  }, [sales]);
+  // IDs removed optimistically (deleted, or being deleted). Derived from the
+  // paginated list so "Load more" can never bring a deleted sale back.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
+  const displaySales = useMemo(
+    () => sales.filter((s) => !hiddenIds.has(s.id)),
+    [sales, hiddenIds]
+  );
 
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -73,13 +74,10 @@ export default function SalesListPage() {
       return;
     }
 
-    // ✅ Store the current list in case we need to rollback
-    const previousSales = displaySales;
-
     try {
       // ✅ Optimistic update: remove from UI immediately
       setDeletingId(sale.id);
-      setDisplaySales((prev) => prev.filter((x) => x.id !== sale.id));
+      setHiddenIds((prev) => new Set(prev).add(sale.id));
       setError("");
 
       const user = auth.currentUser;
@@ -143,7 +141,11 @@ export default function SalesListPage() {
     } catch (err: any) {
       console.error(err);
       // ✅ Rollback: restore the sale if deletion failed
-      setDisplaySales(previousSales);
+      setHiddenIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sale.id);
+        return next;
+      });
       setDeletingId(null);
       setError(getErrorMessage(err));
     }

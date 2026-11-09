@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   collection,
@@ -31,7 +31,7 @@ export default function IncomeDataTab() {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const { businessId, loading: businessLoading } = useBusiness();
 
-  const loadIncome = async () => {
+  const loadIncome = useCallback(async () => {
     setLoading(true);
     try {
       const user = auth.currentUser;
@@ -47,15 +47,9 @@ export default function IncomeDataTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
 
-  useEffect(() => {
-    if (businessLoading) return;
-    loadIncome();
-    loadCustomers();
-  }, [businessId, businessLoading]);
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       const user = auth.currentUser;
       if (!user || !businessId) return;
@@ -71,7 +65,13 @@ export default function IncomeDataTab() {
     } catch (err) {
       console.error("Error loading customers:", err);
     }
-  };
+  }, [businessId]);
+
+  useEffect(() => {
+    if (businessLoading) return;
+    loadIncome();
+    loadCustomers();
+  }, [businessLoading, loadIncome, loadCustomers]);
 
   const getCustomersForLookup = async () => {
     if (customers.length > 0) return customers;

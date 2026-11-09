@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   addDoc,
@@ -35,7 +35,6 @@ export default function AddPurchasePage() {
 
   // Supplier dropdown
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
   // Query param (auto-select)
@@ -55,7 +54,6 @@ export default function AddPurchasePage() {
   // Items & totals (same as sale invoice)
   const [items, setItems] = useState<Item[]>([{ description: "", size: "1", qty: "1", unitPrice: "0", amount: 0 }
 ]);
-  const [subtotal, setSubtotal] = useState(0);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -87,7 +85,6 @@ export default function AddPurchasePage() {
     setChNo(d.chNo || ""); // ✅ FIX
     setTerms(d.terms || "CASH");
     setItems(d.items || []);
-    setSubtotal(d.subtotal || 0);
   };
 
   loadPurchase();
@@ -98,7 +95,8 @@ export default function AddPurchasePage() {
   useEffect(() => {
     const loadLastBill = async (userId: string) => {
       try {
-        let bizId: string | null = businessId;
+        // Runs once on mount, when businessId state is still null; resolve it here.
+        let bizId: string | null = null;
         if (!bizId) {
           try {
             const userSnap = await getDoc(doc(db, "users", userId));
@@ -201,10 +199,10 @@ export default function AddPurchasePage() {
   }, []);
 
   // Auto-select supplier when coming from ledger (query param)
-  useEffect(() => {
-    if (!preSupplierId) return;
-    if (suppliers.length === 0) return;
-
+  // Applied once per URL value, after suppliers load (state adjusted during render).
+  const [appliedSupplierId, setAppliedSupplierId] = useState<string | null>(null);
+  if (preSupplierId && suppliers.length > 0 && appliedSupplierId !== preSupplierId) {
+    setAppliedSupplierId(preSupplierId);
     const found = suppliers.find((s) => s.id === preSupplierId);
     if (found) {
       setSupplierId(found.id);
@@ -213,21 +211,17 @@ export default function AddPurchasePage() {
       setSupplierPhone(found.phone || found.supplierPhone || "");
       setShowDropdown(false);
     }
-  }, [preSupplierId, suppliers]);
+  }
 
   // Supplier dropdown filter
-  useEffect(() => {
-    if (!supplierCompany.trim()) {
-      setFilteredSuppliers([]);
-      return;
-    }
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierCompany.trim()) return [];
     const s = supplierCompany.toLowerCase();
-    const filtered = suppliers.filter((c) => {
+    return suppliers.filter((c) => {
       const company = (c.company || c.supplierCompany || "").toLowerCase();
       const name = (c.name || c.supplierName || "").toLowerCase();
       return company.includes(s) || (!company && name.includes(s));
     });
-    setFilteredSuppliers(filtered);
   }, [supplierCompany, suppliers]);
 
   const handleSelectSupplier = (c: any) => {
@@ -239,10 +233,10 @@ export default function AddPurchasePage() {
   };
 
   // ---------------- Items calculations ----------------
-  useEffect(() => {
-    const s = items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
-    setSubtotal(s);
-  }, [items]);
+  const subtotal = useMemo(
+    () => items.reduce((sum, it) => sum + Number(it.amount || 0), 0),
+    [items]
+  );
 
 const updateItem = (index: number, field: keyof Item, value: string) => {
   setItems((prev) => {
@@ -364,7 +358,6 @@ const updateItem = (index: number, field: keyof Item, value: string) => {
       setPoNumber("");
       setTerms("CASH");
       setItems([{ description: "", size: "1", qty: "1", unitPrice: "0" , amount: 0 }]);
-      setSubtotal(0);
     } catch (error: any) {
       setMessage("Error saving entry: " + (error?.message || error));
     } finally {

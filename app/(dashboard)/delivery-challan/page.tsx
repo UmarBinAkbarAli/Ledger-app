@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
@@ -20,21 +20,15 @@ interface Challan {
 export default function DeliveryChallanListPage() {
   const router = useRouter();
   const [challans, setChallans] = useState<Challan[]>([]);
-  const [filteredChallans, setFilteredChallans] = useState<Challan[]>([]);
   const [loading, setLoading] = useState(true);
   const [businessId, setBusinessId] = useState<string | null>(null);
+  // True once the business lookup below has finished (successfully or not).
+  // Challans load only after this, so a stale legacy-scope query can't race the real one.
+  const [businessResolved, setBusinessResolved] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedChallanIds, setSelectedChallanIds] = useState<string[]>([]);
   const [info, setInfo] = useState("");
-
-  useEffect(() => {
-    loadChallans();
-  }, [businessId]);
-
-  useEffect(() => {
-    filterChallans();
-  }, [search, statusFilter, challans]);
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -47,7 +41,6 @@ export default function DeliveryChallanListPage() {
             uid: user.uid,
             email: user.email,
             claims: tokenResult.claims,
-            businessId,
           });
         } catch (err) {
           console.warn("Delivery challan debug failed to load token claims:", err);
@@ -71,12 +64,14 @@ export default function DeliveryChallanListPage() {
           return;
         }
         console.error("Error fetching business profile:", err);
+      } finally {
+        setBusinessResolved(true);
       }
     };
     fetchBusiness();
   }, []);
 
-  const loadChallans = async () => {
+  const loadChallans = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) return;
 
@@ -149,9 +144,15 @@ export default function DeliveryChallanListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
 
-  const filterChallans = () => {
+  useEffect(() => {
+    if (!businessResolved) return;
+    loadChallans();
+  }, [businessResolved, loadChallans]);
+
+  // Search + status filtering, derived from the loaded challans.
+  const filteredChallans = useMemo(() => {
     let filtered = [...challans];
 
     // Search filter
@@ -170,8 +171,8 @@ export default function DeliveryChallanListPage() {
       filtered = filtered.filter((c) => c.status === statusFilter);
     }
 
-    setFilteredChallans(filtered);
-  };
+    return filtered;
+  }, [challans, search, statusFilter]);
 
   const handleDelete = async (id: string, challanNumber: string) => {
     if (!confirm(`Delete challan ${challanNumber}?`)) return;

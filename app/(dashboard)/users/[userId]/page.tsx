@@ -21,13 +21,13 @@ export default function UserDetailPage() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [resetLink, setResetLink] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (roleLoading) return;
+  // Derived (not set in an effect) so non-admins see this message instead of an
+  // endless "Loading..." — the load below never runs for them.
+  const permissionError =
+    !roleLoading && !isAdmin ? "You do not have permission to view this user" : "";
 
-    if (!isAdmin) {
-      setError("You do not have permission to view this user");
-      return;
-    }
+  useEffect(() => {
+    if (roleLoading || !isAdmin) return;
 
     const loadUser = async () => {
       try {
@@ -125,7 +125,7 @@ export default function UserDetailPage() {
     setResettingPassword(false);
   };
 
-  if (roleLoading || loading) {
+  if (roleLoading || (loading && !permissionError)) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">User Details</h1>
@@ -134,12 +134,12 @@ export default function UserDetailPage() {
     );
   }
 
-  if (error || !user) {
+  if (permissionError || error || !user) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">User Details</h1>
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
-          {error || "User not found"}
+          {permissionError || error || "User not found"}
         </div>
         <button
           onClick={() => router.back()}

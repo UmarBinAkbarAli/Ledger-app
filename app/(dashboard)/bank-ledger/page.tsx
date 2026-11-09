@@ -19,7 +19,6 @@ export default function BankLedgerPage() {
   const [openingBalance, setOpeningBalance] = useState(0);
   const [bankIn, setBankIn] = useState(0);
   const [bankOut, setBankOut] = useState(0);
-  const [closingBalance, setClosingBalance] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -148,9 +147,7 @@ export default function BankLedgerPage() {
     loadData();
   }, [selectedBank, startDate, endDate, businessId, businessLoading]);
 
-  useEffect(() => {
-    setClosingBalance(openingBalance + bankIn - bankOut);
-  }, [openingBalance, bankIn, bankOut]);
+  const closingBalance = openingBalance + bankIn - bankOut;
 
   // Auto-refresh when page becomes visible
   useEffect(() => {

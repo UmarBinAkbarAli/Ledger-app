@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -9,20 +9,7 @@ export default function LogoDebugPage() {
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        checkLogo(user);
-      } else {
-        setResults({ error: "Not logged in. Please go to /login" });
-        setLoading(false);
-      }
-    });
-    
-    return () => unsubscribe();
-  }, []);
-
-  const checkLogo = async (user: any) => {
+  const checkLogo = useCallback(async (user: any) => {
     try {
 
       // Get user doc
@@ -73,7 +60,20 @@ export default function LogoDebugPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        checkLogo(user);
+      } else {
+        setResults({ error: "Not logged in. Please go to /login" });
+        setLoading(false);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [checkLogo]);
 
   const testImageLoad = (url: string) => {
     return new Promise((resolve) => {

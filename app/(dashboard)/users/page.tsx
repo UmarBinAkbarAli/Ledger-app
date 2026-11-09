@@ -209,14 +209,13 @@ export default function UsersPage() {
     }
   };
 
+  // Derived (not set in an effect) so non-admins see this message instead of an
+  // endless "Loading..." — loadUsers never runs for them.
+  const permissionError =
+    !roleLoading && !isAdmin ? "You do not have permission to view users" : "";
+
   useEffect(() => {
-    if (roleLoading) return;
-
-    if (!isAdmin) {
-      setError("You do not have permission to view users");
-      return;
-    }
-
+    if (roleLoading || !isAdmin) return;
     loadUsers();
   }, [roleLoading, isAdmin]);
 
@@ -273,7 +272,7 @@ export default function UsersPage() {
     setDeletingUid(null);
   };
 
-  if (roleLoading || loading) {
+  if (roleLoading || (loading && !permissionError)) {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">Users</h1>
@@ -282,12 +281,12 @@ export default function UsersPage() {
     );
   }
 
-  if (error) {
+  if (permissionError || error) {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">Users</h1>
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
-          {error}
+          {permissionError || error}
         </div>
       </div>
     );

@@ -8,6 +8,12 @@ import {
 import { getPakistanDate } from "@/lib/dateUtils"; // IMPORT THIS
 import { useBusiness } from "@/hooks/useBusiness";
 
+// Tenant scope for queries: business-scoped, or legacy per-user docs without businessId.
+const buildScopeClauses = (businessId: string | null, userId: string) =>
+  businessId
+    ? [where("businessId", "==", businessId)]
+    : [where("userId", "==", userId), where("businessId", "==", null)];
+
 export default function PettyCashPage() {
   // FIX: Use Pakistan Date by default
   const [selectedDate, setSelectedDate] = useState(getPakistanDate());
@@ -16,7 +22,6 @@ export default function PettyCashPage() {
   const [cashIn, setCashIn] = useState(0);       
   const [cashOut, setCashOut] = useState(0);     
   const [openingBalance, setOpeningBalance] = useState(0);
-  const [closingBalance, setClosingBalance] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);  
   const [loading, setLoading] = useState(true);
 
@@ -29,11 +34,6 @@ export default function PettyCashPage() {
   const [openingInput, setOpeningInput] = useState("");
   const [openingInputDate, setOpeningInputDate] = useState(getPakistanDate()); // FIX HERE TOO
 
-  const buildScopeClauses = (userId: string) =>
-    businessId
-      ? [where("businessId", "==", businessId)]
-      : [where("userId", "==", userId), where("businessId", "==", null)];
-
   // 1. CHECK & LOAD INITIAL OPENING BALANCE
   useEffect(() => {
     const checkOpening = async () => {
@@ -44,7 +44,7 @@ export default function PettyCashPage() {
         let snap;
         try {
           snap = await getDocs(
-            query(collection(db, "pettyCashOpening"), ...buildScopeClauses(user.uid))
+            query(collection(db, "pettyCashOpening"), ...buildScopeClauses(businessId, user.uid))
           );
         } catch (err: any) {
           if (err?.code === "permission-denied" && businessId) {
@@ -139,11 +139,11 @@ export default function PettyCashPage() {
 
       let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
       try {
-        const qIncome = query(collection(db, "income"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
-        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("toAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
-        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("fromAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+        const qIncome = query(collection(db, "income"), ...buildScopeClauses(businessId, user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(businessId, user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(businessId, user.uid), where("paymentMethod", "==", "CASH"), where("date", "<", selectedDate));
+        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(businessId, user.uid), where("toAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
+        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(businessId, user.uid), where("fromAccount", "==", "Petty Cash"), where("date", "<", selectedDate));
 
         [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
           getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
@@ -187,11 +187,11 @@ export default function PettyCashPage() {
 
       let inSnap, expSnap, opSnap, trInSnap, trOutSnap;
       try {
-        const qIncome = query(collection(db, "income"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
-        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("toAccount", "==", "Petty Cash"));
-        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(user.uid), where("date", "==", selectedDate), where("fromAccount", "==", "Petty Cash"));
+        const qIncome = query(collection(db, "income"), ...buildScopeClauses(businessId, user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qExpense = query(collection(db, "expenses"), ...buildScopeClauses(businessId, user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qOpExpense = query(collection(db, "operationalExpenses"), ...buildScopeClauses(businessId, user.uid), where("date", "==", selectedDate), where("paymentMethod", "==", "CASH"));
+        const qTransIn = query(collection(db, "transfers"), ...buildScopeClauses(businessId, user.uid), where("date", "==", selectedDate), where("toAccount", "==", "Petty Cash"));
+        const qTransOut = query(collection(db, "transfers"), ...buildScopeClauses(businessId, user.uid), where("date", "==", selectedDate), where("fromAccount", "==", "Petty Cash"));
 
         [inSnap, expSnap, opSnap, trInSnap, trOutSnap] = await Promise.all([
           getDocs(qIncome), getDocs(qExpense), getDocs(qOpExpense), getDocs(qTransIn), getDocs(qTransOut)
@@ -237,9 +237,7 @@ export default function PettyCashPage() {
   }, [selectedDate, businessId, businessLoading]);
 
   // 5. CLOSING CALCULATION
-  useEffect(() => {
-    setClosingBalance(openingBalance + cashIn - cashOut);
-  }, [openingBalance, cashIn, cashOut]);
+  const closingBalance = openingBalance + cashIn - cashOut;
 
   // 6. AUTO-REFRESH when page becomes visible
   useEffect(() => {

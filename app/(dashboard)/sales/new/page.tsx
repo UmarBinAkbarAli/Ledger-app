@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db, auth } from "@/lib/firebase";
 import {
   addDoc,
@@ -37,6 +37,24 @@ type Challan = {
   items: { description: string; qty: number }[];
 };
 
+// Invoice line items built from the selected challans (prices are filled manually).
+function buildItemsFromChallans(ids: string[], challans: Challan[]): Item[] {
+  const mergedItems: Item[] = [];
+  challans
+    .filter((ch) => ids.includes(ch.id))
+    .forEach((challan) => {
+      challan.items.forEach((item) => {
+        mergedItems.push({
+          description: item.description,
+          qty: String(item.qty),
+          unitPrice: "0", // Price needs to be filled manually
+          amount: 0,
+        });
+      });
+    });
+  return mergedItems;
+}
+
 export default function AddSalePage() {
   // Header & customer
   const [customerId, setCustomerId] = useState("");
@@ -47,7 +65,6 @@ export default function AddSalePage() {
   const [customerChNo, setCustomerChNo] = useState("");
   // Company dropdown states
   const [customers, setCustomers] = useState<any[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<any[]>([]);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
 // If coming from customer ledger, read saleCustomerId
@@ -72,7 +89,6 @@ const challanIdsParam = searchParams.get("challanIds");
   const [items, setItems] = useState<Item[]>([
     { description: "", qty: "1", unitPrice: "0", amount: 0 },
   ]);
-  const [subtotal, setSubtotal] = useState(0);
 
   // UI
   const [loading, setLoading] = useState(false);
@@ -217,10 +233,11 @@ useEffect(() => {
 }, []);
 
 // Auto-select customer when coming from ledger
-useEffect(() => {
-  if (!saleCustomerId) return;        // no param → do nothing
-  if (customers.length === 0) return; // wait for customers to load
-
+// Pre-fill once per URL value, after customers load (adjusting state during
+// render instead of an effect; also avoids overwriting edits if customers reload).
+const [appliedSaleCustomerId, setAppliedSaleCustomerId] = useState<string | null>(null);
+if (saleCustomerId && customers.length > 0 && appliedSaleCustomerId !== saleCustomerId) {
+  setAppliedSaleCustomerId(saleCustomerId);
   const found = customers.find((c) => c.id === saleCustomerId);
   if (found) {
     setCustomerId(found.id);
@@ -230,7 +247,7 @@ useEffect(() => {
     setCustomerPhone(found.phone || "");
     setCustomerChNo(found.chNo || "");
   }
-}, [saleCustomerId, customers]);
+}
 
 // Load available challans when customer is selected
 useEffect(() => {
@@ -348,8 +365,10 @@ useEffect(() => {
       // Set available challans to include the loaded ones
       setAvailableChallans(loadedChallans);
 
-      // Auto-select the challans
+      // Auto-select the challans and fill items from them
       setSelectedChallanIds(idsFromUrl);
+      const urlItems = buildItemsFromChallans(idsFromUrl, loadedChallans);
+      if (urlItems.length > 0) setItems(urlItems);
     } catch (error) {
       console.error("Error loading challans from URL:", error);
     }
@@ -359,20 +378,14 @@ useEffect(() => {
 }, [challanIdsParam]);
 
 // Filter companies real-time (fallback to name when company is empty)
-useEffect(() => {
-  if (!customerCompany.trim()) {
-    setFilteredCompanies([]);
-    return;
-  }
-
+const filteredCompanies = useMemo(() => {
+  if (!customerCompany.trim()) return [];
   const s = customerCompany.toLowerCase();
-  const filtered = customers.filter((c) => {
+  return customers.filter((c) => {
     const company = (c.company || "").toLowerCase();
     const name = (c.name || "").toLowerCase();
     return company.includes(s) || (!company && name.includes(s));
   });
-
-  setFilteredCompanies(filtered);
 }, [customerCompany, customers]);
 
 const handleSelectCustomer = (c: any) => {
@@ -398,53 +411,32 @@ const handleSelectCompany = (c: any) => {
 
 // Handle challan selection/deselection
 const handleToggleChallan = (challanId: string) => {
-  setSelectedChallanIds((prev) => {
-    if (prev.includes(challanId)) {
-      return prev.filter((id) => id !== challanId);
-    } else {
-      return [...prev, challanId];
-    }
-  });
-};
+  const nextIds = selectedChallanIds.includes(challanId)
+    ? selectedChallanIds.filter((id) => id !== challanId)
+    : [...selectedChallanIds, challanId];
+  setSelectedChallanIds(nextIds);
 
-// Auto-fill items from selected challans
-useEffect(() => {
-  if (selectedChallanIds.length === 0) {
-    // If no challans selected, reset to empty item
-    if (items.length === 0 || items.every(it => !it.description.trim())) {
+  // Auto-fill items from the selected challans
+  if (nextIds.length === 0) {
+    // If no challans selected, reset to empty item (only if nothing was typed)
+    if (items.length === 0 || items.every((it) => !it.description.trim())) {
       setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
     }
     return;
   }
-
-  // Merge items from all selected challans
-  const selectedChallans = availableChallans.filter((ch) =>
-    selectedChallanIds.includes(ch.id)
-  );
-
-  const mergedItems: Item[] = [];
-  selectedChallans.forEach((challan) => {
-    challan.items.forEach((item) => {
-      mergedItems.push({
-        description: item.description,
-        qty: String(item.qty),
-        unitPrice: "0", // Price needs to be filled manually
-        amount: 0,
-      });
-    });
-  });
-
+  const mergedItems = buildItemsFromChallans(nextIds, availableChallans);
   if (mergedItems.length > 0) {
     setItems(mergedItems);
   }
-}, [selectedChallanIds, availableChallans]);
+};
+
 
 
   // Recalculate amounts when items change
-  useEffect(() => {
-    const s = items.reduce((sum, it) => sum + Number(it.amount || 0), 0);
-    setSubtotal(s);
-  }, [items]);
+  const subtotal = useMemo(
+    () => items.reduce((sum, it) => sum + Number(it.amount || 0), 0),
+    [items]
+  );
 
  const updateItem = (index: number, field: keyof Item, value: string) => {
   setItems((prev) => {
@@ -594,7 +586,6 @@ const handleSubmit = async (e: any) => {
     setPoNumber("");
     setTerms("CASH");
     setItems([{ description: "", qty: "1", unitPrice: "0", amount: 0 }]);
-    setSubtotal(0);
   } catch (error: any) {
     setMessage("Error saving entry: " + (error?.message || error));
   } finally {
