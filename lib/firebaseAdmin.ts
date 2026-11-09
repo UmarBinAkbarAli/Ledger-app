@@ -77,7 +77,9 @@ export function getAdminFirestore(): Firestore {
     if (!firestoreSettingsApplied) {
       try {
         adminDb.settings({
-          preferRest: true,  // Use REST API instead of gRPC
+          // REST mode ignores FIRESTORE_EMULATOR_HOST and asks for real credentials,
+          // so the emulator keeps the default (gRPC) transport. Production unchanged.
+          preferRest: !process.env.FIRESTORE_EMULATOR_HOST,  // Use REST API instead of gRPC
           ignoreUndefinedProperties: true, // Ignore undefined values
         });
         firestoreSettingsApplied = true;

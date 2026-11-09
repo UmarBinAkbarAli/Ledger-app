@@ -57,6 +57,8 @@ Exceptions: `users/{uid}/bankAccounts`, `pettyCash`, `summary` subcollections ar
 
 Role and `businessId` live in **Firebase Auth custom claims** as well as the Firestore user doc. This is deliberate (see `SSL_WORKAROUND.md`): admin creates users via `POST /api/users/create`, which sets claims; the Firestore `users/{uid}` doc is created client-side on the user's first login (`app/(auth)/login/page.tsx`) from those claims. `requireAdmin` also "auto-heals" claims for legacy admins found only in Firestore. If you change what's in claims, update `login/page.tsx`, `adminAuth.ts`, `api/users/create/route.ts`, and `firestore.rules` together.
 
+Claims and the `users/{uid}` doc can drift apart: pages read `businessId` from the doc but the rules trust the claim, so a mismatch means every query is silently denied (empty lists). `requireAdmin` resolves a missing `businessId` claim from the admin's Firestore doc (never the uid when the doc has one) so new users get the right tenant; `components/AccessSyncBanner.tsx` (dashboard layout) force-refreshes the token on load, reloads once if claims changed, and warns if claims and doc still disagree.
+
 ### Client vs. server Firebase
 
 - `lib/firebase.ts` — client SDK with persistent offline cache (multi-tab). The dashboard shows an offline banner and relies on Firestore's queued writes.

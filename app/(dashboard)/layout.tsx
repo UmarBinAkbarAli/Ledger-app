@@ -7,6 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
 import BackButton from "@/components/BackButton";
+import AccessSyncBanner from "@/components/AccessSyncBanner";
 import useOnlineStatus from "@/app/hooks/useOnlineStatus";
 import { useUserRole } from "@/lib/useUserRole";
 import { Permission } from "@/lib/roles";
@@ -105,6 +106,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      <AccessSyncBanner />
 
       {/* 🔴 Offline Banner */}
       {!online && (

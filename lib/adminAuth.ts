@@ -35,6 +35,21 @@ async function resolveBusinessId(
   return decodedToken.uid;
 }
 
+/** Merge fields into a user's custom claims, keeping the rest (e.g. createdBy). */
+async function healClaims(
+  adminAuth: ReturnType<typeof getAdminAuth>,
+  uid: string,
+  fields: Record<string, unknown>
+): Promise<void> {
+  try {
+    const existing = (await adminAuth.getUser(uid)).customClaims || {};
+    await adminAuth.setCustomUserClaims(uid, { ...existing, ...fields });
+    logger.info("✅ Auto-healed custom claims for admin user");
+  } catch (claimsError) {
+    logger.warn("⚠️ Could not auto-heal custom claims for admin user", claimsError);
+  }
+}
+
 async function verifyAdmin(
   adminAuth: ReturnType<typeof getAdminAuth>,
   adminDb: ReturnType<typeof getAdminFirestore>,
@@ -42,7 +57,24 @@ async function verifyAdmin(
 ): Promise<AdminVerificationResult> {
   // Fast path: custom claims
   if (decodedToken.admin === true || decodedToken.role === UserRole.ADMIN) {
-    const businessId = await resolveBusinessId(decodedToken);
+    if (decodedToken.businessId) {
+      return { isAdmin: true, businessId: decodedToken.businessId as string, source: "custom_claims", decodedToken };
+    }
+    // Admin claim but no businessId claim: the Firestore profile is the source of
+    // truth. Falling back to the admin's uid here stamped the WRONG tenant onto
+    // users this admin created (their claims said uid, their data said businessId),
+    // so every read they made was denied by the rules.
+    let userData: Record<string, any> | undefined;
+    try {
+      const userDoc = await adminDb.collection("users").doc(decodedToken.uid).get();
+      userData = userDoc.exists ? userDoc.data() || {} : undefined;
+    } catch (firestoreError) {
+      logger.warn("⚠️ Could not load admin profile to resolve businessId", firestoreError);
+    }
+    const businessId = await resolveBusinessId(decodedToken, userData);
+    if (userData?.businessId) {
+      await healClaims(adminAuth, decodedToken.uid, { businessId });
+    }
     return { isAdmin: true, businessId, source: "custom_claims", decodedToken };
   }
 
@@ -56,16 +88,7 @@ async function verifyAdmin(
 
       if (firestoreRole === "admin" || firestoreRole === UserRole.ADMIN) {
         // Auto-heal: set custom claims so future checks are faster
-        try {
-          await adminAuth.setCustomUserClaims(decodedToken.uid, {
-            role: UserRole.ADMIN,
-            admin: true,
-            businessId,
-          });
-          logger.info("✅ Auto-set custom claims for admin user");
-        } catch (claimsError) {
-          logger.warn("⚠️ Could not auto-set custom claims for admin user", claimsError);
-        }
+        await healClaims(adminAuth, decodedToken.uid, { role: UserRole.ADMIN, admin: true, businessId });
 
         return { isAdmin: true, businessId, source: "firestore", decodedToken };
       }
